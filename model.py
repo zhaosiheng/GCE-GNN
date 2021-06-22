@@ -138,13 +138,34 @@ class CombineGraph(Module):
 
         h_global = entity_vectors[0].view(batch_size, seqs_len, self.dim)
 
+        con_loss = SSL(h_local, h_global)
         # combine
         h_local = F.dropout(h_local, self.dropout_local, training=self.training)
         h_global = F.dropout(h_global, self.dropout_global, training=self.training)
         output = h_local + h_global
 
-        return output
+        return output, con_loss
 
+
+def SSL(sess_emb_hgnn, sess_emb_lgcn):
+    def row_shuffle(embedding):
+        corrupted_embedding = embedding[torch.randperm(embedding.size()[0])]
+        return corrupted_embedding
+
+    def row_column_shuffle(embedding):
+        corrupted_embedding = embedding[torch.randperm(embedding.size()[0])]
+        corrupted_embedding = corrupted_embedding[:, torch.randperm(corrupted_embedding.size()[1])]
+        return corrupted_embedding
+
+    def score(x1, x2):
+        return torch.sum(torch.mul(x1, x2), 1)
+
+    pos = score(sess_emb_hgnn, sess_emb_lgcn)
+    neg1 = score(sess_emb_lgcn, row_column_shuffle(sess_emb_hgnn))
+    one = torch.cuda.FloatTensor(neg1.shape[0]).fill_(1)
+    # one = zeros = torch.ones(neg1.shape[0])
+    con_loss = torch.sum(-torch.log(1e-8 + torch.sigmoid(pos)) - torch.log(1e-8 + (one - torch.sigmoid(neg1))))
+    return con_loss
 
 def trans_to_cuda(variable):
     if torch.cuda.is_available():
@@ -168,10 +189,10 @@ def forward(model, data):
     mask = trans_to_cuda(mask).long()
     inputs = trans_to_cuda(inputs).long()
 
-    hidden = model(items, adj, mask, inputs)
+    hidden, con_loss = model(items, adj, mask, inputs)
     get = lambda index: hidden[index][alias_inputs[index]]
     seq_hidden = torch.stack([get(i) for i in torch.arange(len(alias_inputs)).long()])
-    return targets, model.compute_scores(seq_hidden, mask)
+    return targets, model.compute_scores(seq_hidden, mask), con_loss
 
 
 def train_test(model, train_data, test_data):
@@ -182,9 +203,9 @@ def train_test(model, train_data, test_data):
                                                shuffle=True, pin_memory=True)
     for data in tqdm(train_loader):
         model.optimizer.zero_grad()
-        targets, scores = forward(model, data)
+        targets, scores, con_loss = forward(model, data)
         targets = trans_to_cuda(targets).long()
-        loss = model.loss_function(scores, targets - 1)
+        loss = model.loss_function(scores, targets - 1) + con_loss
         loss.backward()
         model.optimizer.step()
         total_loss += loss
