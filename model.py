@@ -8,7 +8,29 @@ from aggregator import LocalAggregator, GlobalAggregator
 from torch.nn import Module, Parameter
 import torch.nn.functional as F
 
-
+class LineConv(Module):
+    def __init__(self, layers=3,batch_size=100,emb_size=100):
+        super(LineConv, self).__init__()
+        self.emb_size = emb_size
+        self.batch_size = batch_size
+        self.layers = layers
+    def forward(self, item_embedding, D, A, session_item, session_len):
+        zeros = trans_to_cuda(torch.FloatTensor(1,self.emb_size).fill_(0))
+        # zeros = torch.zeros([1,self.emb_size])
+        item_embedding = torch.cat([zeros, item_embedding], 0)
+        seq_h = []
+        for i in torch.arange(len(session_item)):
+            seq_h.append(torch.index_select(item_embedding, 0, session_item[i]))
+        seq_h1 = trans_to_cuda(torch.tensor([item.cpu().detach().numpy() for item in seq_h]))
+        session_emb_lgcn = torch.div(torch.sum(seq_h1, 1), session_len)
+        session = [session_emb_lgcn]
+        DA = torch.mm(D, A).float()
+        for i in range(self.layers):
+            session_emb_lgcn = torch.mm(DA, session_emb_lgcn)
+            session.append(session_emb_lgcn)
+        session_emb_lgcn = np.sum(session, 0)
+        return session_emb_lgcn
+    
 class CombineGraph(Module):
     def __init__(self, opt, num_node, adj_all, num):
         super(CombineGraph, self).__init__()
@@ -27,6 +49,7 @@ class CombineGraph(Module):
 
         # Aggregator
         self.local_agg = LocalAggregator(self.dim, self.opt.alpha, dropout=opt.long_edge_dropout, hop=opt.hop)
+        self.LineGraph = LineConv(batch_size=self.batch_size, emb_size=self.dim)
         self.global_agg = []
         for i in range(self.hop):
             if opt.activate == 'relu':
@@ -67,7 +90,7 @@ class CombineGraph(Module):
         # return self.adj_all[target.view(-1)][:, index], self.num[target.view(-1)][:, index]
         return self.adj_all[target.view(-1)], self.num[target.view(-1)]
 
-    def compute_scores(self, hidden, mask):
+    def compute_scores(self, hidden, mask, inputs):
         mask = mask.float().unsqueeze(-1)
 
         batch_size = hidden.shape[0]
@@ -84,9 +107,11 @@ class CombineGraph(Module):
         beta = beta * mask
         select = torch.sum(beta * hidden, 1)
 
+        session_emb = self.sessiongraph(inputs, mask)
+        con_loss = SSL(select, session_emb)
         b = self.embedding.weight[1:]  # n_nodes x latent_size
         scores = torch.matmul(select, b.transpose(1, 0))
-        return scores
+        return scores, con_loss
 
     def forward(self, inputs, adj, mask_item, item):
         batch_size = inputs.shape[0]
@@ -104,7 +129,29 @@ class CombineGraph(Module):
         output = h_local 
 
         return output
+    def get_overlap(self, sessions):
+        matrix = np.zeros((len(sessions), len(sessions)))
+        for i in range(len(sessions)):
+            seq_a = set(sessions[i])
+            seq_a.discard(0)
+            for j in range(i+1, len(sessions)):
+                seq_b = set(sessions[j])
+                seq_b.discard(0)
+                overlap = seq_a.intersection(seq_b)
+                ab_set = seq_a | seq_b
+                matrix[i][j] = float(len(overlap))/float(len(ab_set))
+                matrix[j][i] = matrix[i][j]
+        matrix = matrix + np.diag([1.0]*len(sessions))
+        degree = np.sum(np.array(matrix), 1)
+        degree = np.diag(1.0/degree)
+        return matrix, degree
 
+    def sessiongraph(self, sessions, mask):
+        A, D = self.get_overlap(sessions)
+        A = trans_to_cuda(torch.Tensor(A))
+        D = trans_to_cuda(torch.Tensor(D))
+        session_emb = self.LineGraph(self.embedding.weight, D, A, sessions, mask.squeeze(-1).sum(-1,keepdim=True))
+        return session_emb
 
 def SSL(sess_emb_hgnn, sess_emb_lgcn):
     def row_shuffle(embedding):
@@ -121,7 +168,7 @@ def SSL(sess_emb_hgnn, sess_emb_lgcn):
 
     pos = score(sess_emb_hgnn, sess_emb_lgcn)
     neg1 = score(sess_emb_lgcn, row_column_shuffle(sess_emb_hgnn))
-    one = torch.cuda.FloatTensor(neg1.shape[0], neg1.shape[1]).fill_(1)
+    one = torch.cuda.FloatTensor(neg1.shape[0]).fill_(1)
     # one = zeros = torch.ones(neg1.shape[0])
     con_loss = torch.sum(-torch.log(1e-8 + torch.sigmoid(pos)) - torch.log(1e-8 + (one - torch.sigmoid(neg1))))
     return con_loss
@@ -151,7 +198,8 @@ def forward(model, data):
     hidden = model(items, adj, mask, inputs)
     get = lambda index: hidden[index][alias_inputs[index]]
     seq_hidden = torch.stack([get(i) for i in torch.arange(len(alias_inputs)).long()])
-    return targets, model.compute_scores(seq_hidden, mask)
+    scores, con_loss = model.compute_scores(seq_hidden, mask, inputs)
+    return targets, scores, con_loss
 
 
 def train_test(model, train_data, test_data):
@@ -162,9 +210,9 @@ def train_test(model, train_data, test_data):
                                                shuffle=True, pin_memory=True)
     for data in tqdm(train_loader):
         model.optimizer.zero_grad()
-        targets, scores = forward(model, data)
+        targets, scores, con_loss = forward(model, data)
         targets = trans_to_cuda(targets).long()
-        loss = model.loss_function(scores, targets - 1) 
+        loss = model.loss_function(scores, targets - 1) + con_loss * model.opt.lamda
         loss.backward()
         model.optimizer.step()
         total_loss += loss
@@ -178,7 +226,7 @@ def train_test(model, train_data, test_data):
     result = []
     hit, mrr, hit_alias, mrr_alias = [], [], [], []
     for data in test_loader:
-        targets, scores = forward(model, data)
+        targets, scores, con_loss = forward(model, data)
         sub_scores = scores.topk(20)[1]
         sub_scores_alias = scores.topk(10)[1]
         sub_scores = trans_to_cpu(sub_scores).detach().numpy()
