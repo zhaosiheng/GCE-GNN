@@ -107,8 +107,9 @@ class CombineGraph(Module):
         beta = beta * mask
         select = torch.sum(beta * hidden, 1)
 
-        session_emb = self.sessiongraph(inputs, mask)
-        con_loss = SSL(select, session_emb)
+        #session_emb = self.sessiongraph(inputs, mask)
+        #con_loss = SSL(select, session_emb)
+        con_loss = 0
         b = self.embedding.weight[1:]  # n_nodes x latent_size
         scores = torch.matmul(select, b.transpose(1, 0))
         return scores, con_loss
