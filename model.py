@@ -9,7 +9,7 @@ from torch.nn import Module, Parameter
 import torch.nn.functional as F
 
 class LineConv(Module):
-    def __init__(self, layers=1, batch_size=100, emb_size=100):
+    def __init__(self, layers=3, batch_size=100, emb_size=100):
         super(LineConv, self).__init__()
         self.emb_size = emb_size
         self.batch_size = batch_size
