@@ -90,7 +90,7 @@ class CombineGraph(Module):
         # return self.adj_all[target.view(-1)][:, index], self.num[target.view(-1)][:, index]
         return self.adj_all[target.view(-1)], self.num[target.view(-1)]
 
-    def compute_scores(self, hidden, mask, inputs):
+    def compute_scores(self, hidden, mask, inputs, inputs_short):
         mask = mask.float().unsqueeze(-1)
 
         batch_size = hidden.shape[0]
@@ -107,9 +107,8 @@ class CombineGraph(Module):
         beta = beta * mask
         select = torch.sum(beta * hidden, 1)
 
-        session_emb = self.sessiongraph(inputs, mask)
+        session_emb = self.sessiongraph(inputs, inputs_short, mask)
         con_loss = SSL(select, session_emb)
-        
         b = self.embedding.weight[1:]  # n_nodes x latent_size
         scores = torch.matmul(select, b.transpose(1, 0))
         return scores, con_loss
@@ -147,8 +146,8 @@ class CombineGraph(Module):
         degree = np.diag(1.0/degree)
         return matrix, degree
 
-    def sessiongraph(self, sessions, mask):
-        A, D = self.get_overlap(sessions)
+    def sessiongraph(self, sessions, sessions_short, mask):
+        A, D = self.get_overlap(sessions_short)
         A = trans_to_cuda(torch.Tensor(A))
         D = trans_to_cuda(torch.Tensor(D))
         session_emb = self.LineGraph(self.embedding.weight, D, A, sessions, mask.squeeze(-1).sum(-1,keepdim=True))
@@ -190,6 +189,7 @@ def trans_to_cpu(variable):
 
 def forward(model, data):
     alias_inputs, adj, items, mask, targets, inputs = data
+    inputs_short = cut_down(inputs, mask)
     alias_inputs = trans_to_cuda(alias_inputs).long()
     items = trans_to_cuda(items).long()
     adj = trans_to_cuda(adj).float()
@@ -199,7 +199,8 @@ def forward(model, data):
     hidden = model(items, adj, mask, inputs)
     get = lambda index: hidden[index][alias_inputs[index]]
     seq_hidden = torch.stack([get(i) for i in torch.arange(len(alias_inputs)).long()])
-    scores, con_loss = model.compute_scores(seq_hidden, mask, inputs)
+
+    scores, con_loss = model.compute_scores(seq_hidden, mask, inputs, inputs_short)
     return targets, scores, con_loss
 
 
@@ -256,3 +257,9 @@ def train_test(model, train_data, test_data):
     result.append(np.mean(hit_alias) * 100)
     result.append(np.mean(mrr_alias) * 100)
     return result
+
+def cut_down(inputs, mask):
+    max_n_node = mask.squeeze(-1).sum(-1).topk(1)[0].item()
+    inputs = inputs[:,:max_n_node]
+    inputs = inputs.numpy().tolist()
+    return inputs
