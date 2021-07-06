@@ -9,7 +9,7 @@ from torch.nn import Module, Parameter
 import torch.nn.functional as F
 
 class LineConv(Module):
-    def __init__(self, layers=3,batch_size=100,emb_size=100):
+    def __init__(self, layers=1, batch_size=100, emb_size=100):
         super(LineConv, self).__init__()
         self.emb_size = emb_size
         self.batch_size = batch_size
@@ -107,9 +107,9 @@ class CombineGraph(Module):
         beta = beta * mask
         select = torch.sum(beta * hidden, 1)
 
-        #session_emb = self.sessiongraph(inputs, mask)
-        #con_loss = SSL(select, session_emb)
-        con_loss = 0
+        session_emb = self.sessiongraph(inputs, mask)
+        con_loss = SSL(select, session_emb)
+        
         b = self.embedding.weight[1:]  # n_nodes x latent_size
         scores = torch.matmul(select, b.transpose(1, 0))
         return scores, con_loss
