@@ -107,7 +107,7 @@ def main():
         print('Current Result:')
         print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f' % (hit, mrr, hit_alias, mrr_alias))
         print('Best Result:')
-        print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@20:\t%.4f\tEpoch:\t%d,\t%d,\t%d,\t%d' % (
+        print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f\tEpoch:\t%d,\t%d,\t%d,\t%d' % (
             best_result[0], best_result[1], best_result[2], best_result[3], best_epoch[0], best_epoch[1], best_epoch[2], best_epoch[3]))
         bad_counter += 1 - flag
         if bad_counter >= opt.patience:
