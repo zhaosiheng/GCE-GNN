@@ -36,7 +36,7 @@ parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leak
 parser.add_argument('--patience', type=int, default=3)
 parser.add_argument('--hop', type=int, default=5)
 parser.add_argument('--long_edge_dropout', type=float, default=0.0)
-
+parser.add_argument('--lamda', type=float, default=0.0)
 
 opt = parser.parse_args()
 
