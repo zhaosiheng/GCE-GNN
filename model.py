@@ -99,53 +99,11 @@ class CombineGraph(Module):
         # local
         h_local = self.local_agg(h, adj, mask_item)
 
-        # global
-        item_neighbors = [inputs]
-        weight_neighbors = []
-        support_size = seqs_len
 
-        for i in range(1, self.hop + 1):
-            item_sample_i, weight_sample_i = self.sample(item_neighbors[-1], self.sample_num)
-            support_size *= self.sample_num
-            item_neighbors.append(item_sample_i.view(batch_size, support_size))
-            weight_neighbors.append(weight_sample_i.view(batch_size, support_size))
-
-        entity_vectors = [self.embedding(i) for i in item_neighbors]
-        weight_vectors = weight_neighbors
-
-        session_info = []
-        item_emb = self.embedding(item) * mask_item.float().unsqueeze(-1)
-        
-        # mean 
-        sum_item_emb = torch.sum(item_emb, 1) / torch.sum(mask_item.float(), -1).unsqueeze(-1)
-        
-        # sum
-        # sum_item_emb = torch.sum(item_emb, 1)
-        
-        sum_item_emb = sum_item_emb
-        for i in range(self.hop):
-            #session_info.append(sum_item_emb.repeat(1, entity_vectors[i].shape[1], 1))
-            session_info.append(sum_item_emb)
-
-        for n_hop in range(self.hop):
-            entity_vectors_next_iter = []
-            shape = [batch_size, -1, self.sample_num, self.dim]
-            for hop in range(self.hop - n_hop):
-                aggregator = self.global_agg[n_hop]
-                vector = aggregator(self_vectors=entity_vectors[hop],
-                                    neighbor_vector=entity_vectors[hop+1].view(shape),
-                                    masks=None,
-                                    batch_size=batch_size,
-                                    neighbor_weight=weight_vectors[hop].view(batch_size, -1, self.sample_num),
-                                    extra_vector=session_info[hop])
-                entity_vectors_next_iter.append(vector)
-            entity_vectors = entity_vectors_next_iter
-
-        s_global = entity_vectors[0]
 
         # combine
         h_local = F.dropout(h_local, self.dropout_local, training=self.training)
-        s_global = F.dropout(s_global, self.dropout_global, training=self.training)
+        s_global = 0
         output = h_local 
 
         return output, s_global
