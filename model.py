@@ -239,15 +239,29 @@ class Litmodel(LightningModule):
         self.save_hyperparameters()
         self.model = model
         
-    def forward(self, x):
-        x = self.model(x)
-        return x
+    def forward(self, data):
+        alias_inputs, adj, items, mask, targets, inputs = data
+        alias_inputs = alias_inputs.long()
+        items = items.long()
+        adj = adj.float()
+        mask = mask.long()
+        inputs = inputs.long()
+
+        hidden, s_global = self.model(items, adj, mask, inputs)
+        get = lambda index: hidden[index][alias_inputs[index]]
+        seq_hidden = torch.stack([get(i) for i in torch.arange(len(alias_inputs)).long()])
+        return targets, self.model.compute_scores(seq_hidden, mask, s_global)
     def training_step(self, batch, batch_idx):
+        data = batch
+        targets, scores = self(data)
+        targets = targets.long()
+        loss = self.model.loss_function(scores, targets - 1) 
         
         return loss
-    def validtion_step(self, batch, batch_idx):
+    def test_step(self, batch, batch_idx):
+        data = batch
+        targets, scores = self(data)
         
         return loss
     def configure_optimizers(self):
-        torch.optim.Adam(self.parameters(), lr=opt.lr, weight_decay=opt.l2)
-        return optimizer
+        return self.model.optimizer
