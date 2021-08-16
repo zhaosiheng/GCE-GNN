@@ -232,3 +232,13 @@ def train_test(model, train_data, test_data):
     result.append(np.mean(hit_alias) * 100)
     result.append(np.mean(mrr_alias) * 100)
     return result
+
+class Litmodel(LightningModule):
+    def __init__(self,model):
+        super().__init__()
+        self.save_hyperparameters()
+        self.model = model
+        
+    def forward(self, x):
+        x = self.model(x)
+        return 
