@@ -7,6 +7,7 @@ from tqdm import tqdm
 from aggregator import LocalAggregator, GlobalAggregator
 from torch.nn import Module, Parameter
 import torch.nn.functional as F
+from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 
 
 class CombineGraph(Module):
