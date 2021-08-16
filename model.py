@@ -234,7 +234,7 @@ def train_test(model, train_data, test_data):
     return result
 
 class Litmodel(LightningModule):
-    def __init__(self,model):
+    def __init__(self,model,opt):
         super().__init__()
         self.save_hyperparameters()
         self.model = model
@@ -242,12 +242,12 @@ class Litmodel(LightningModule):
     def forward(self, x):
         x = self.model(x)
         return x
-    def training_step(self):
+    def training_step(self, batch, batch_idx):
         
         return loss
-    def validtion_step(self):
+    def validtion_step(self, batch, batch_idx):
         
         return loss
     def configure_optimizers(self):
-        
+        torch.optim.Adam(self.parameters(), lr=opt.lr, weight_decay=opt.l2)
         return optimizer
