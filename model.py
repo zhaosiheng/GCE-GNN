@@ -148,7 +148,7 @@ def train_test(model, train_data, test_data):
 
     test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.model.batch_size,
                                               shuffle=False, pin_memory=True)
-    trainer = Trainer(max_epochs=3, porgress_bar_refresh_rate=20, tpu_cores=8)
+    trainer = Trainer(max_epochs=3, progress_bar_refresh_rate=20, tpu_cores=8)
     trainer.fit(model, train_loader)
     trainer.test(model, test_loader)
     
