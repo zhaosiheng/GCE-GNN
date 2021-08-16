@@ -241,4 +241,13 @@ class Litmodel(LightningModule):
         
     def forward(self, x):
         x = self.model(x)
-        return 
+        return x
+    def training_step(self):
+        
+        return loss
+    def validtion_step(self):
+        
+        return loss
+    def configure_optimizers(self):
+        
+        return optimizer
