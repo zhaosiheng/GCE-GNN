@@ -139,14 +139,14 @@ def forward(model, data):
 
 def train_test(model, train_data, test_data):
 
-    train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.batch_size,
+    train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.model.batch_size,
                                                shuffle=True, pin_memory=True)
 
 
     #model.scheduler.step()
 
 
-    test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
+    test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.model.batch_size,
                                               shuffle=False, pin_memory=True)
     trainer = Trainer(max_epochs=3, porgress_bar_refresh_rate=20, tpu_cores=8)
     trainer.fit(model, train_loader)
