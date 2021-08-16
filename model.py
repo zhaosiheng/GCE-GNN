@@ -179,7 +179,7 @@ class Litmodel(LightningModule):
         targets, scores = self(data)
         targets = targets.long()
         loss = self.model.loss_function(scores, targets - 1) 
-        
+        self.log('train_loss', loss)
         return loss
     def test_step(self, batch, batch_idx):
         data = batch
