@@ -22,8 +22,8 @@ class CombineGraph(Module):
         self.dropout_global = opt.dropout_global
         self.hop = opt.n_iter
         self.sample_num = opt.n_sample
-        self.adj_all = trans_to_cuda(torch.Tensor(adj_all)).long()
-        self.num = trans_to_cuda(torch.Tensor(num)).float()
+        self.adj_all = torch.Tensor(adj_all).long()
+        self.num = torch.Tensor(num).float()
         self.degree = self.num.sum(-1)
         self.epoch = 0
         
