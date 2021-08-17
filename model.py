@@ -254,3 +254,151 @@ def test_step(self, batch, batch_idx):
             best_result[0], best_result[1], best_result[2], best_result[3], best_epoch[0], best_epoch[1], best_epoch[2], best_epoch[3]))
 '''
 
+import torchvision
+from torchvision import datasets
+import torchvision.transforms as transforms
+import torch_xla.distributed.parallel_loader as pl
+import time
+
+def map_fn(index, flags):
+  ## Setup 
+
+  # Sets a common random seed - both for initialization and ensuring graph is the same
+  torch.manual_seed(flags['seed'])
+
+  # Acquires the (unique) Cloud TPU core corresponding to this process's index
+  device = xm.xla_device()  
+
+
+  ## Dataloader construction
+
+  # Creates the transform for the raw Torchvision data
+  # See https://pytorch.org/docs/stable/torchvision/models.html for normalization
+  # Pre-trained TorchVision models expect RGB (3 x H x W) images
+  # H and W should be >= 224
+  # Loaded into [0, 1] and normalized as follows:
+  normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                  std=[0.229, 0.224, 0.225])
+  to_rgb = transforms.Lambda(lambda image: image.convert('RGB'))
+  resize = transforms.Resize((224, 224))
+  my_transform = transforms.Compose([resize, to_rgb, transforms.ToTensor(), normalize])
+
+  # Downloads train and test datasets
+  # Note: master goes first and downloads the dataset only once (xm.rendezvous)
+  #   all the other workers wait for the master to be done downloading.
+
+  if not xm.is_master_ordinal():
+    xm.rendezvous('download_only_once')
+
+  train_dataset = datasets.FashionMNIST(
+    "/tmp/fashionmnist",
+    train=True,
+    download=True,
+    transform=my_transform)
+
+  test_dataset = datasets.FashionMNIST(
+    "/tmp/fashionmnist",
+    train=False,
+    download=True,
+    transform=my_transform)
+  
+  if xm.is_master_ordinal():
+    xm.rendezvous('download_only_once')
+  
+  # Creates the (distributed) train sampler, which let this process only access
+  # its portion of the training dataset.
+  train_sampler = torch.utils.data.distributed.DistributedSampler(
+    train_dataset,
+    num_replicas=xm.xrt_world_size(),
+    rank=xm.get_ordinal(),
+    shuffle=True)
+  
+  test_sampler = torch.utils.data.distributed.DistributedSampler(
+    test_dataset,
+    num_replicas=xm.xrt_world_size(),
+    rank=xm.get_ordinal(),
+    shuffle=False)
+  
+  # Creates dataloaders, which load data in batches
+  # Note: test loader is not shuffled or sampled
+  train_loader = torch.utils.data.DataLoader(
+      train_dataset,
+      batch_size=flags['batch_size'],
+      sampler=train_sampler,
+      num_workers=flags['num_workers'],
+      drop_last=True)
+
+  test_loader = torch.utils.data.DataLoader(
+      test_dataset,
+      batch_size=flags['batch_size'],
+      sampler=test_sampler,
+      shuffle=False,
+      num_workers=flags['num_workers'],
+      drop_last=True)
+  
+
+  ## Network, optimizer, and loss function creation
+
+  # Creates AlexNet for 10 classes
+  # Note: each process has its own identical copy of the model
+  #  Even though each model is created independently, they're also
+  #  created in the same way.
+  net = torchvision.models.alexnet(num_classes=10).to(device).train()
+
+  loss_fn = torch.nn.CrossEntropyLoss()
+  optimizer = torch.optim.Adam(net.parameters())
+
+
+  ## Trains
+  train_start = time.time()
+  for epoch in range(flags['num_epochs']):
+    para_train_loader = pl.ParallelLoader(train_loader, [device]).per_device_loader(device)
+    for batch_num, batch in enumerate(para_train_loader):
+      data, targets = batch 
+
+      # Acquires the network's best guesses at each class
+      output = net(data)
+
+      # Computes loss
+      loss = loss_fn(output, targets)
+
+      # Updates model
+      optimizer.zero_grad()
+      loss.backward()
+
+      # Note: optimizer_step uses the implicit Cloud TPU context to
+      #  coordinate and synchronize gradient updates across processes.
+      #  This means that each process's network has the same weights after
+      #  this is called.
+      # Warning: this coordination requires the actions performed in each 
+      #  process are the same. In more technical terms, the graph that
+      #  PyTorch/XLA generates must be the same across processes. 
+      xm.optimizer_step(optimizer)  # Note: barrier=True not needed when using ParallelLoader 
+
+  elapsed_train_time = time.time() - train_start
+  print("Process", index, "finished training. Train time was:", elapsed_train_time) 
+
+
+  ## Evaluation
+  # Sets net to eval and no grad context 
+  net.eval()
+  eval_start = time.time()
+  with torch.no_grad():
+    num_correct = 0
+    total_guesses = 0
+
+    para_train_loader = pl.ParallelLoader(test_loader, [device]).per_device_loader(device)
+    for batch_num, batch in enumerate(para_train_loader):
+      data, targets = batch
+
+      # Acquires the network's best guesses at each class
+      output = net(data)
+      best_guesses = torch.argmax(output, 1)
+
+      # Updates running statistics
+      num_correct += torch.eq(targets, best_guesses).sum().item()
+      total_guesses += flags['batch_size']
+  
+  elapsed_eval_time = time.time() - eval_start
+  print("Process", index, "finished evaluation. Evaluation time was:", elapsed_eval_time)
+  print("Process", index, "guessed", num_correct, "of", total_guesses, "correctly for", num_correct/total_guesses * 100, "% accuracy.")
