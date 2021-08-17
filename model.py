@@ -139,32 +139,29 @@ def forward(model, data):
 
 def train_test(model, train_data, test_data):
 
-    train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.model.batch_size,
-                                               shuffle=True, pin_memory=True)
-
-
-    #model.scheduler.step()
-
-
-    test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.model.batch_size,
-                                              shuffle=False, pin_memory=True)
+    dm = Litdatamodule(model.model.batch_size, train_data, test_data)
     trainer = Trainer(max_epochs=3, progress_bar_refresh_rate=20, tpu_cores=8)
-    trainer.fit(model, train_loader)
-    trainer.test(model, test_loader)
+    trainer.fit(model, dm)
+    trainer.test(model, dm)
     
-class litdatamodule(LightningDataModule):
-    def __init__(self, batch_size):
+class Litdatamodule(LightningDataModule):
+    def __init__(self, batch_size ,train, test):
         super().__init__()
         self.batch_size = batch_size
+        self.tmp1 = train
+        self.tmp2 =test
     def prepare_data(self):
         
     def setup(self, stage=None):
-        
+        if stage == 'fit' or stage is None:
+            self.train_data = self.tmp1
+        if stage == 'test' or stage is None:
+            self.test_data = self.tmp2
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.model.batch_size, shuffle=True, pin_memory=True)
+        return torch.utils.data.DataLoader(self.train_data, num_workers=4, batch_size=model.model.batch_size, shuffle=True, pin_memory=True)
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.model.batch_size, shuffle=False, pin_memory=True)
+        return torch.utils.data.DataLoader(self.train_data, num_workers=4, batch_size=model.model.batch_size, shuffle=False, pin_memory=True)
 class Litmodel(LightningModule):
     def __init__(self,model,opt):
         super().__init__()
