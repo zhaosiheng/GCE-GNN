@@ -78,7 +78,7 @@ def main():
     adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
     model = Litmodel(opt, num_node, adj, num)
 
-    train_test(model, train_data, test_data)
+    train_test(model, train_data, test_data, opt)
 
 
 
