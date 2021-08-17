@@ -159,10 +159,10 @@ class Litdatamodule(LightningDataModule):
         if stage == 'test' or stage is None:
             self.test_data = Data(self.tmp2, hop=self.opt.hop)
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.train_data, num_workers=4, batch_size=self.batch_size, shuffle=True, pin_memory=True)
+        return torch.utils.data.DataLoader(self.train_data, num_workers=4, batch_size=self.batch_size, shuffle=True)
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.test_data, num_workers=4, batch_size=self.batch_size, shuffle=False, pin_memory=True)
+        return torch.utils.data.DataLoader(self.test_data, num_workers=4, batch_size=self.batch_size, shuffle=False)
 class Litmodel(LightningModule):
     def __init__(self,opt, num_node, adj, num):
         super().__init__()
