@@ -142,7 +142,7 @@ def forward(model, data):
 def train_test(model, train_data, test_data, opt):
 
     dm = Litdatamodule(model.model.batch_size, train_data, test_data, opt)
-    trainer = Trainer(max_epochs=1, tpu_cores=1)
+    trainer = Trainer(max_epochs=1, tpu_cores=8)
     trainer.fit(model, dm)
     #trainer.test(model, dm)
     
