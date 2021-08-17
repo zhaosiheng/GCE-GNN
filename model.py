@@ -141,7 +141,7 @@ def forward(model, data):
 def train_test(model, train_data, test_data):
 
     dm = Litdatamodule(model.model.batch_size, train_data, test_data)
-    trainer = Trainer(max_epochs=1, tpu_cores=8, plugins=TPUSpawnPlugin(debug=Ture))
+    trainer = Trainer(max_epochs=1, tpu_cores=8, plugins=TPUSpawnPlugin(debug=True))
     trainer.fit(model, dm)
     #trainer.test(model, dm)
     
