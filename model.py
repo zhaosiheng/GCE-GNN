@@ -139,24 +139,25 @@ def forward(model, data):
     return targets, model.compute_scores(seq_hidden, mask, s_global)
 
 
-def train_test(model, train_data, test_data):
+def train_test(model, train_data, test_data, opt):
 
-    dm = Litdatamodule(model.model.batch_size, train_data, test_data)
+    dm = Litdatamodule(model.model.batch_size, train_data, test_data, opt)
     trainer = Trainer(max_epochs=1, tpu_cores=1, plugins=TPUSpawnPlugin())
     trainer.fit(model, dm)
     #trainer.test(model, dm)
     
 class Litdatamodule(LightningDataModule):
-    def __init__(self, batch_size ,train, test):
+    def __init__(self, batch_size ,train, test, opt):
         super().__init__()
         self.batch_size = batch_size
         self.tmp1 = train
         self.tmp2 =test
+        self.opt = opt
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.train_data = Data(self.tmp1, hop=opt.hop)
+            self.train_data = Data(self.tmp1, hop=self.opt.hop)
         if stage == 'test' or stage is None:
-            self.test_data = Data(self.tmp2, hop=opt.hop)
+            self.test_data = Data(self.tmp2, hop=self.opt.hop)
     def train_dataloader(self):
         return torch.utils.data.DataLoader(self.train_data, num_workers=4, batch_size=self.batch_size, shuffle=True, pin_memory=True)
 
