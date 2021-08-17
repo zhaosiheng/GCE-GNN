@@ -8,6 +8,7 @@ from aggregator import LocalAggregator, GlobalAggregator
 from torch.nn import Module, Parameter
 import torch.nn.functional as F
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
+from pytorch_lightning.plugins.training_type.ddp_spawn.DDPSpawnPlugin import TPUSpawnPlugin
 
 
 class CombineGraph(Module):
@@ -140,7 +141,7 @@ def forward(model, data):
 def train_test(model, train_data, test_data):
 
     dm = Litdatamodule(model.model.batch_size, train_data, test_data)
-    trainer = Trainer(max_epochs=1, progress_bar_refresh_rate=20, tpu_cores=8)
+    trainer = Trainer(max_epochs=1, tpu_cores=8, plugins=TPUSpawnPlugin(debug=Ture))
     trainer.fit(model, dm)
     #trainer.test(model, dm)
     
