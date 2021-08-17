@@ -77,7 +77,7 @@ def main():
     test_data = Data(test_data, hop=opt.hop)
 
     adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
-    model = Litmodel(CombineGraph(opt, num_node, adj, num), opt)
+    model = Litmodel(opt, num_node, adj, num)
 
     train_test(model, train_data, test_data)
 
