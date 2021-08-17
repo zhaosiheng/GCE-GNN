@@ -162,10 +162,10 @@ class Litdatamodule(LightningDataModule):
     def test_dataloader(self):
         return torch.utils.data.DataLoader(self.test_data, num_workers=4, batch_size=self.batch_size, shuffle=False, pin_memory=True)
 class Litmodel(LightningModule):
-    def __init__(self,model,opt):
+    def __init__(self,model,opt, num_node, adj, num):
         super().__init__()
         self.save_hyperparameters()
-        self.model = model
+        self.model = CombineGraph(opt, num_node, adj, num)
         self.best_result = [0, 0, 0, 0]
         self.best_epoch = [0, 0, 0, 0]
         self.opt = opt
