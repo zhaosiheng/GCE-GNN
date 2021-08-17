@@ -140,8 +140,8 @@ def forward(model, data):
 def train_test(model, train_data, test_data):
 
     dm = Litdatamodule(model.model.batch_size, train_data, test_data)
-    trainer = Trainer(max_epochs=3, progress_bar_refresh_rate=20, tpu_cores=8)
-    trainer.fit(model, dm)
+    trainer = Trainer(max_epochs=1, progress_bar_refresh_rate=20, tpu_cores=8)
+    #trainer.fit(model, dm)
     trainer.test(model, dm)
     
 class Litdatamodule(LightningDataModule):
