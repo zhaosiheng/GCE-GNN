@@ -150,8 +150,6 @@ class Litdatamodule(LightningDataModule):
         self.batch_size = batch_size
         self.tmp1 = train
         self.tmp2 =test
-    def prepare_data(self):
-        
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
             self.train_data = self.tmp1
