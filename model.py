@@ -9,6 +9,7 @@ from torch.nn import Module, Parameter
 import torch.nn.functional as F
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.plugins.training_type import TPUSpawnPlugin
+from utils import *
 
 
 class CombineGraph(Module):
@@ -153,16 +154,16 @@ class Litdatamodule(LightningDataModule):
         self.tmp2 =test
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.train_data = self.tmp1
+            self.train_data = Data(self.tmp1, hop=opt.hop)
         if stage == 'test' or stage is None:
-            self.test_data = self.tmp2
+            self.test_data = Data(self.tmp2, hop=opt.hop)
     def train_dataloader(self):
         return torch.utils.data.DataLoader(self.train_data, num_workers=4, batch_size=self.batch_size, shuffle=True, pin_memory=True)
 
     def test_dataloader(self):
         return torch.utils.data.DataLoader(self.test_data, num_workers=4, batch_size=self.batch_size, shuffle=False, pin_memory=True)
 class Litmodel(LightningModule):
-    def __init__(self,model,opt, num_node, adj, num):
+    def __init__(self,opt, num_node, adj, num):
         super().__init__()
         self.save_hyperparameters()
         self.model = CombineGraph(opt, num_node, adj, num)
