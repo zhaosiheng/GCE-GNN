@@ -159,7 +159,7 @@ class Litdatamodule(LightningDataModule):
         return torch.utils.data.DataLoader(self.train_data, num_workers=4, batch_size=self.batch_size, shuffle=True, pin_memory=True)
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.train_data, num_workers=4, batch_size=self.batch_size, shuffle=False, pin_memory=True)
+        return torch.utils.data.DataLoader(self.test_data, num_workers=4, batch_size=self.batch_size, shuffle=False, pin_memory=True)
 class Litmodel(LightningModule):
     def __init__(self,model,opt):
         super().__init__()
