@@ -8,7 +8,7 @@ from aggregator import LocalAggregator, GlobalAggregator
 from torch.nn import Module, Parameter
 import torch.nn.functional as F
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.plugins.training_type.ddp_spawn.DDPSpawnPlugin import TPUSpawnPlugin
+from pytorch_lightning.plugins.training_type import TPUSpawnPlugin
 
 
 class CombineGraph(Module):
