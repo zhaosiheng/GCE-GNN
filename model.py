@@ -191,63 +191,6 @@ class Litmodel(LightningModule):
         loss = self.model.loss_function(scores, targets - 1) 
         self.log('train_loss', loss)
         return loss
-    def test_step(self, batch, batch_idx):
-        data = batch
-        targets, scores = self(data)
-        
-        result = []
-        hit, mrr, hit_alias, mrr_alias = [], [], [], []
-        for data in test_loader:
-            targets, scores = self( data)
-            sub_scores = scores.topk(20)[1]
-            sub_scores_alias = scores.topk(10)[1]
-            sub_scores = sub_scores.detach().numpy()
-            sub_scores_alias = sub_scores_alias.detach().numpy()
-            targets = targets.numpy()
-            for score, target, mask in zip(sub_scores, targets, test_data.mask):
-                #@20
-                hit.append(np.isin(target - 1, score))
-                if len(np.where(score == target - 1)[0]) == 0:
-                    mrr.append(0)
-                else:
-                    mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
 
-            for score, target, mask in zip(sub_scores_alias, targets, test_data.mask):
-                #@10
-                hit_alias.append(np.isin(target - 1, score))
-                if len(np.where(score == target - 1)[0]) == 0:
-                    mrr_alias.append(0)
-                else:
-                    mrr_alias.append(1 / (np.where(score == target - 1)[0][0] + 1))
-        result.append(np.mean(hit) * 100)
-        result.append(np.mean(mrr) * 100)
-
-        result.append(np.mean(hit_alias) * 100)
-        result.append(np.mean(mrr_alias) * 100)
-        return result
-    def test_epoch_end(self, result):
-        hit, mrr, hit_alias, mrr_alias = reslut
-        flag = 0
-        if hit >= best_result[0]:
-            self.best_result[0] = hit
-            self.best_epoch[0] = epoch
-            flag = 1
-        if mrr >= best_result[1]:
-            self.best_result[1] = mrr
-            self.best_epoch[1] = epoch
-            flag = 1
-        if hit_alias >= best_result[2]:
-            self.best_result[2] = hit_alias
-            self.best_epoch[2] = epoch
-            flag = 1
-        if mrr_alias >= best_result[3]:
-            self.best_result[3] = mrr_alias
-            self.best_epoch[3] = epoch
-            flag = 1
-        self.print('Current Result:')
-        self.print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f' % (hit, mrr, hit_alias, mrr_alias))
-        self.print('Best Result:')
-        self.print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f\tEpoch:\t%d,\t%d,\t%d,\t%d' % (
-            best_result[0], best_result[1], best_result[2], best_result[3], best_epoch[0], best_epoch[1], best_epoch[2], best_epoch[3]))
     def configure_optimizers(self):
         return self.model.optimizer
