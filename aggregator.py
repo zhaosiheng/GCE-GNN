@@ -92,7 +92,7 @@ class GlobalAggregator(nn.Module):
         else:
             neighbor_vector = torch.mean(neighbor_vector, dim=2)
         # self_vectors = F.dropout(self_vectors, 0.5, training=self.training)
-        output = torch.cat([self_vectors, neighbor_vector], -1)
+        output = torch.cat([self_vectors, neighbor_vector, extra_vector.unsqueeze(-2).repeat(1, self_vectors.shape[1], 1)], -1)
         output = F.dropout(output, self.dropout, training=self.training)
         output = torch.matmul(output, self.w_3)
 
