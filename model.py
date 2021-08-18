@@ -69,7 +69,7 @@ class CombineGraph(Module):
         # return self.adj_all[target.view(-1)][:, index], self.num[target.view(-1)][:, index]
         return self.adj_all[target.view(-1)], self.num[target.view(-1)]
 
-    def compute_scores(self, hidden, mask, s_global):
+    def compute_scores(self, hidden, mask):
         mask = mask.float().unsqueeze(-1)
 
         batch_size = hidden.shape[0]
@@ -146,9 +146,9 @@ class CombineGraph(Module):
         # combine
         h_local = F.dropout(h_local, self.dropout_local, training=self.training)
         s_global = F.dropout(s_global, self.dropout_global, training=self.training)
-        output = h_local + s_global.unsqueeze(-2).repeat(1,h_local.shape[1],1)
+        output = h_local + s_global
 
-        return output, s_global
+        return output
 
 
 def trans_to_cuda(variable):
@@ -173,10 +173,10 @@ def forward(model, data):
     mask = trans_to_cuda(mask).long()
     inputs = trans_to_cuda(inputs).long()
 
-    hidden, s_global = model(items, adj, mask, inputs)
+    hidden = model(items, adj, mask, inputs)
     get = lambda index: hidden[index][alias_inputs[index]]
     seq_hidden = torch.stack([get(i) for i in torch.arange(len(alias_inputs)).long()])
-    return targets, model.compute_scores(seq_hidden, mask, s_global)
+    return targets, model.compute_scores(seq_hidden, mask)
 
 
 def train_test(model, train_data, test_data):
