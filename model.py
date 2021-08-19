@@ -126,23 +126,25 @@ class CombineGraph(Module):
             #session_info.append(sum_item_emb.repeat(1, entity_vectors[i].shape[1], 1))
             session_info.append(sum_item_emb)
 
+        entity_vectors[0] = session_info[0].unsqueeze(-2)
         for n_hop in range(self.hop):
             entity_vectors_next_iter = []
-            shape = [batch_size, -1, self.sample_num, self.dim]
+            shape = [batch_size, -1, self.sample_num * seqs_len, self.dim]
             for hop in range(self.hop - n_hop):
                 aggregator = self.global_agg[n_hop]
-                vector = aggregator(self_vectors=entity_vectors[hop],
+                vector = aggregator(self_vectors=entity_vectors[0],
                                     neighbor_vector=entity_vectors[hop+1].view(shape),
                                     masks=None,
                                     batch_size=batch_size,
-                                    neighbor_weight=weight_vectors[hop].view(batch_size, -1, self.sample_num),
-                                    extra_vector=session_info[hop],
-                                    t = self.opt.t)
+                                    neighbor_weight=weight_vectors[hop].view(batch_size, -1, self.sample_num * seqs_len),
+                                    extra_vector=session_info[hop])
                 entity_vectors_next_iter.append(vector)
+            for i in range(len(entity_vectors_next_iter)):
+                if i > 0:
+                    entity_vectors_next_iter[i] = entity_vectors_next_iter[i].repeat(1, 69, 1)
+                    
             entity_vectors = entity_vectors_next_iter
-
-        s_global = entity_vectors[0]
-
+        h_global = entity_vectors[0]
         # combine
         h_local = F.dropout(h_local, self.dropout_local, training=self.training)
         s_global = F.dropout(s_global, self.dropout_global, training=self.training)
