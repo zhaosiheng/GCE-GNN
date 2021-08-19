@@ -141,7 +141,7 @@ class CombineGraph(Module):
                 entity_vectors_next_iter.append(vector)
             for i in range(len(entity_vectors_next_iter)):
                 if i > 0:
-                    entity_vectors_next_iter[i] = entity_vectors_next_iter[i].repeat(1, 69, 1)
+                    entity_vectors_next_iter[i] = entity_vectors_next_iter[i].repeat(1, seqs_len, 1)
                     
             entity_vectors = entity_vectors_next_iter
         s_global = entity_vectors[0]
