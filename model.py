@@ -124,7 +124,8 @@ class CombineGraph(Module):
         # sum_item_emb = torch.sum(item_emb, 1)
         
         sum_item_emb = sum_item_emb.unsqueeze(-2).repeat(1, item_emb.shape[1], 1)
-        sum_item_emb = torch.sigmoid(torch.matmul(sum_item_emb, self.ws_0)+torch.matmul(sum_item_emb, self.wh_0))
+        gate = torch.sigmoid(torch.matmul(sum_item_emb, self.ws_0)+torch.matmul(sum_item_emb, self.wh_0))
+        sum_item_emb = gate*sum_item_emb +(1-gate)*item_emb
         for i in range(self.hop):
             session_info.append(sum_item_emb)
 
