@@ -30,7 +30,8 @@ class CombineGraph(Module):
         # Aggregator
         self.local_agg = LocalAggregator(self.dim, self.opt.alpha, dropout=opt.long_edge_dropout, hop=opt.hop)
         self.global_agg = []
-        self.w_0 = nn.Parameter(torch.Tensor(2 * self.dim, self.dim))
+        self.ws_0 = nn.Parameter(torch.Tensor(self.dim, 1))
+        self.wh_0 = nn.Parameter(torch.Tensor(self.dim, 1))
         for i in range(self.hop):
             if opt.activate == 'relu':
                 agg = GlobalAggregator(self.dim, opt.dropout_gcn, act=torch.relu)
@@ -123,7 +124,7 @@ class CombineGraph(Module):
         # sum_item_emb = torch.sum(item_emb, 1)
         
         sum_item_emb = sum_item_emb.unsqueeze(-2).repeat(1, item_emb.shape[1], 1)
-        sum_item_emb = sum_item_emb + item_emb
+        sum_item_emb = torch.sigmoid(torch.matmul(sum_item_emb, self.ws_0)+torch.matmul(sum_item_emb, self.wh_0))
         for i in range(self.hop):
             session_info.append(sum_item_emb)
 
