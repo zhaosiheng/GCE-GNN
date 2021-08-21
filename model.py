@@ -123,7 +123,7 @@ class CombineGraph(Module):
         # sum_item_emb = torch.sum(item_emb, 1)
         
         sum_item_emb = sum_item_emb.unsqueeze(-2).repeat(1, item_emb.shape[1], 1)
-
+        sum_item_emb = torch.matmul(torch.cat([sum_item_emb, item_emb], -1), self.w_0)
         for i in range(self.hop):
             session_info.append(sum_item_emb)
 
