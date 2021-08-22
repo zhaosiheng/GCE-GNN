@@ -100,8 +100,9 @@ def main():
             xm.master_print('epoch: ', epoch)
             train_test(model, train_data, device, index)
     ###
-            xm.master_print('start predicting: ', datetime.datetime.now())
+            
             xm.wait_device_ops()
+            xm.master_print('start predicting: ', datetime.datetime.now())
             model.eval()
 
 
