@@ -91,7 +91,7 @@ def main():
             best_result = [0, 0, 0, 0]
             best_epoch = [0, 0, 0, 0]
             bad_counter = 0
-            t0 =time.time()
+            t0 = time.time()
         
         
 
@@ -110,7 +110,7 @@ def main():
                 xm.rendezvous('test_time')
             if xm.is_master_ordinal():
                 test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
-                                                          shuffle=False, pin_memory=True)
+                                                          shuffle=False)
                 result = []
                 hit, mrr, hit_alias, mrr_alias = [], [], [], []
                 for data in test_loader:
@@ -137,13 +137,13 @@ def main():
                             mrr_alias.append(1 / (np.where(score == target - 1)[0][0] + 1))
 
 
-                result.append(np.mean(hit) * 100)
-                result.append(np.mean(mrr) * 100)
+                hit = np.mean(hit) * 100
+                mrr = np.mean(mrr) * 100
 
-                result.append(np.mean(hit_alias) * 100)
-                result.append(np.mean(mrr_alias) * 100)
+                hit_alias = np.mean(hit_alias) * 100
+                mrr_alias = np.mean(mrr_alias) * 100
         ###
-                hit, mrr, hit_alias, mrr_alias = result
+                
                 flag = 0
                 if hit >= best_result[0]:
                     best_result[0] = hit
