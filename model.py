@@ -186,8 +186,10 @@ def train_test(model, train_data):
     print('start training: ', datetime.datetime.now())
     model.train()
     total_loss = 0.0
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_data,num_replicas=xm.xrt_world_size(), rank=xm.get_ordinal(), shuffle=True)
+  
     train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.batch_size,
-                                               shuffle=True, pin_memory=True)
+                                               sampler=train_sampler)
     para_train_loader = pl.ParallelLoader(train_loader, [device]).per_device_loader(device)
     for data in tqdm(para_train_loader):
         model.optimizer.zero_grad()
