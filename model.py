@@ -187,6 +187,8 @@ def train_test(model, train_data, test_data):
     print('start training: ', datetime.datetime.now())
     model.train()
     total_loss = 0.0
+    
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_data, num_replicas=xm.xrt_world_size(), rank=xm.get_ordinal(), shuffle=True)
     train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.batch_size,
                                                shuffle=True, pin_memory=True)
     for data in tqdm(train_loader):
@@ -203,7 +205,7 @@ def train_test(model, train_data, test_data):
     print('start predicting: ', datetime.datetime.now())
     model.eval()
     test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
-                                              shuffle=False, pin_memory=True)
+                                              sampler=train_sampler, pin_memory=True)
     result = []
     hit, mrr, hit_alias, mrr_alias = [], [], [], []
     for data in test_loader:
