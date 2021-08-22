@@ -15,7 +15,7 @@ import torch_xla.distributed.parallel_loader as pl
 
 
 class CombineGraph(Module):
-    def __init__(self, opt, num_node, adj_all, num):
+    def __init__(self, opt, num_node, adj_all, num, device):
         super(CombineGraph, self).__init__()
         self.opt = opt
 
