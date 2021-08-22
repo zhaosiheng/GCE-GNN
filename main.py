@@ -95,16 +95,16 @@ def main():
         
 
         for epoch in range(opt.epoch):
-            
+            xm.master_print('-------------------------------------------------------')
+            xm.master_print('epoch: ', epoch)
             train_test(model, train_data, device, index)
     ###
             xm.master_print('start predicting: ', datetime.datetime.now())
             xm.rendezvous('epoch')
             model.eval()
-        xm.rendezvous('finish')
-    flags = opt
-    xmp.spawn(map_fn, args=(flags,), nprocs=8, start_method='fork')
-'''
+
+
+
             if not xm.is_master_ordinal():
                 xm.rendezvous('test_time')
             if xm.is_master_ordinal():
@@ -174,8 +174,10 @@ def main():
             print('-------------------------------------------------------')
             end = time.time()
             print("Run time: %f s" % (end - start))
-'''
 
+        xm.rendezvous('finish')
+    flags = opt
+    xmp.spawn(map_fn, args=(flags,), nprocs=8, start_method='fork')
         
 
     #map_fn(0, opt)
