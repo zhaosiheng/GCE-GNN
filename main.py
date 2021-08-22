@@ -112,7 +112,7 @@ def main():
                 result = []
                 hit, mrr, hit_alias, mrr_alias = [], [], [], []
                 for data in test_loader:
-                    targets, scores = forward(model, data)
+                    targets, scores = forward(model, data, device)
                     sub_scores = scores.topk(20)[1]
                     sub_scores_alias = scores.topk(10)[1]
                     sub_scores = trans_to_cpu(sub_scores).detach().numpy()
