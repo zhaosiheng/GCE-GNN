@@ -183,8 +183,7 @@ def forward(model, data, device):
 
 
 def train_test(model, train_data, device):
-    xm.master_print('real', device)
-    print(device, 'start training: ', datetime.datetime.now())
+    print('start training: ', datetime.datetime.now())
     model.train()
     total_loss = 0.0
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_data,num_replicas=xm.xrt_world_size(), rank=xm.get_ordinal(), shuffle=True)
