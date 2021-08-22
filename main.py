@@ -84,20 +84,20 @@ def main():
         device = xm.xla_device()
         
         model = trans_to_cuda(CombineGraph(opt, num_node, adj, num, device), device)
-        '''
+        
         if xm.is_master_ordinal():  # Divergent CPU-only computation (no XLA tensors beyond this point!)
             print(opt)
             start = time.time()
             best_result = [0, 0, 0, 0]
             best_epoch = [0, 0, 0, 0]
             bad_counter = 0
-        '''
+        
         
 
         for epoch in range(opt.epoch):
             xm.master_print('-------------------------------------------------------')
             xm.master_print('epoch: ', epoch)
-            train_test(model, train_data, device, index)
+            #train_test(model, train_data, device, index)
     ###
             xm.master_print('start predicting: ', datetime.datetime.now())
             xm.rendezvous('epoch')
