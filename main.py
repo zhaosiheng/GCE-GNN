@@ -96,7 +96,7 @@ def main():
 
         for epoch in range(opt.epoch):
             
-            train_test(model, train_data, device)
+            train_test(model, train_data, device, index)
     ###
             xm.master_print('start predicting: ', datetime.datetime.now())
             model.eval()
