@@ -175,7 +175,7 @@ def main():
             print("Run time: %f s" % (end - start))
         
     flags = opt
-    xmp.spawn(map_fn, args=(flags,), nprocs=8, start_method='fork')
+    xmp.spawn(map_fn, args=(flags,), nprocs=1, start_method='fork')
 
 if __name__ == '__main__':
     main()
