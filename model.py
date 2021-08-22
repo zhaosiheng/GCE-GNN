@@ -156,11 +156,9 @@ class CombineGraph(Module):
         return output, s_global
 
 
-def trans_to_cuda(variable):
-    if torch.cuda.is_available():
-        return variable.cuda()
-    else:
-        return variable
+def trans_to_cuda(variable, device):
+    return variable.to(device)
+    
 
 
 def trans_to_cpu(variable):
@@ -190,15 +188,15 @@ def train_test(model, train_data, test_data):
     total_loss = 0.0
     train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.batch_size,
                                                shuffle=True, pin_memory=True)
-    for data in tqdm(train_loader):
+    para_train_loader = pl.ParallelLoader(train_loader, [device]).per_device_loader(device)
+    for data in enumerate(para_train_loader):
         model.optimizer.zero_grad()
         targets, scores = forward(model, data)
         targets = trans_to_cuda(targets).long()
         loss = model.loss_function(scores, targets - 1) 
         loss.backward()
         model.optimizer.step()
-        total_loss += loss
-    print('\tLoss:\t%.3f' % total_loss)
+        
     model.scheduler.step()
 
     print('start predicting: ', datetime.datetime.now())
