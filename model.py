@@ -200,6 +200,6 @@ def train_test(model, train_data, device, index):
         xm.optimizer_step(model.optimizer)
         
     model.scheduler.step()
-
+    print(index, 'finish')
 
     return 
