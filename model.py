@@ -29,7 +29,7 @@ class CombineGraph(Module):
         self.adj_all = trans_to_cuda(torch.Tensor(adj_all), device).long()
         self.num = trans_to_cuda(torch.Tensor(num), device).float()
         self.degree = self.num.sum(-1)
-        self.epoch = 0
+
         
 
         # Aggregator
