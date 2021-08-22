@@ -80,7 +80,7 @@ def main():
     
     def map_fn(index, opt):
         init_seed(2020)
-        train_data, test_data, adj, num = SERIAL_EXEC.run(get_data(opt))
+        train_data, test_data, adj, num = SERIAL_EXEC.run(lambda: get_data(opt))
         device = xm.xla_device()
         
         model = trans_to_cuda(CombineGraph(opt, num_node, adj, num), device)
