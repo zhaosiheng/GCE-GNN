@@ -83,7 +83,7 @@ def main():
         train_data, test_data, adj, num = SERIAL_EXEC.run(lambda: get_data(opt))
         device = xm.xla_device()
         
-        model = trans_to_cuda(CombineGraph(opt, num_node, adj, num), device)
+        model = trans_to_cuda(CombineGraph(opt, num_node, adj, num, device), device)
         
         if xm.is_master_ordinal():  # Divergent CPU-only computation (no XLA tensors beyond this point!)
             print(opt)
