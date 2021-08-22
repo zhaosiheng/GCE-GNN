@@ -193,7 +193,7 @@ def train_test(model, train_data, device):
     para_train_loader = pl.ParallelLoader(train_loader, [device]).per_device_loader(device)
     for data in tqdm(para_train_loader):
         model.optimizer.zero_grad()
-        targets, scores = forward(model, data)
+        targets, scores = forward(model, data, device)
         targets = trans_to_cuda(targets, device).long()
         loss = model.loss_function(scores, targets - 1) 
         loss.backward()
