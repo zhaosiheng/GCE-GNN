@@ -189,7 +189,7 @@ def train_test(model, train_data):
     train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.batch_size,
                                                shuffle=True, pin_memory=True)
     para_train_loader = pl.ParallelLoader(train_loader, [device]).per_device_loader(device)
-    for data in enumerate(para_train_loader):
+    for data in tqdm(para_train_loader):
         model.optimizer.zero_grad()
         targets, scores = forward(model, data)
         targets = trans_to_cuda(targets).long()
