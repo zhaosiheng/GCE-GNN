@@ -188,7 +188,6 @@ def train_test(model, train_data, test_data):
     model.train()
     total_loss = 0.0
     
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_data, num_replicas=xm.xrt_world_size(), rank=xm.get_ordinal(), shuffle=True)
     train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.batch_size,
                                                shuffle=True, pin_memory=True)
     for data in tqdm(train_loader):
