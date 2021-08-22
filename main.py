@@ -92,8 +92,45 @@ def main():
             model.epoch = 0
         else:
             model.epoch = 1
-        hit, mrr, hit_alias, mrr_alias = train_test(model, train_data, test_data)
+        train_test(model, train_data)
+###
+        print('start predicting: ', datetime.datetime.now())
+        model.eval()
+        test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
+                                                  shuffle=False, pin_memory=True)
+        result = []
+        hit, mrr, hit_alias, mrr_alias = [], [], [], []
+        for data in test_loader:
+            targets, scores = forward(model, data)
+            sub_scores = scores.topk(20)[1]
+            sub_scores_alias = scores.topk(10)[1]
+            sub_scores = trans_to_cpu(sub_scores).detach().numpy()
+            sub_scores_alias = trans_to_cpu(sub_scores_alias).detach().numpy()
+            targets = targets.numpy()
+            for score, target, mask in zip(sub_scores, targets, test_data.mask):
+                #@20
+                hit.append(np.isin(target - 1, score))
+                if len(np.where(score == target - 1)[0]) == 0:
+                    mrr.append(0)
+                else:
+                    mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
 
+            for score, target, mask in zip(sub_scores_alias, targets, test_data.mask):
+                #@10
+                hit_alias.append(np.isin(target - 1, score))
+                if len(np.where(score == target - 1)[0]) == 0:
+                    mrr_alias.append(0)
+                else:
+                    mrr_alias.append(1 / (np.where(score == target - 1)[0][0] + 1))
+
+
+        result.append(np.mean(hit) * 100)
+        result.append(np.mean(mrr) * 100)
+
+        result.append(np.mean(hit_alias) * 100)
+        result.append(np.mean(mrr_alias) * 100)
+###
+        hit, mrr, hit_alias, mrr_alias = result
         flag = 0
         if hit >= best_result[0]:
             best_result[0] = hit
