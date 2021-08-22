@@ -26,8 +26,8 @@ class CombineGraph(Module):
         self.dropout_global = opt.dropout_global
         self.hop = opt.n_iter
         self.sample_num = opt.n_sample
-        self.adj_all = trans_to_cuda(torch.Tensor(adj_all)).long()
-        self.num = trans_to_cuda(torch.Tensor(num)).float()
+        self.adj_all = trans_to_cuda(torch.Tensor(adj_all), device).long()
+        self.num = trans_to_cuda(torch.Tensor(num), device).float()
         self.degree = self.num.sum(-1)
         self.epoch = 0
         
@@ -170,11 +170,11 @@ def trans_to_cpu(variable):
 
 def forward(model, data, device):
     alias_inputs, adj, items, mask, targets, inputs = data
-    alias_inputs = trans_to_cuda(alias_inputs).long()
-    items = trans_to_cuda(items).long()
-    adj = trans_to_cuda(adj).float()
-    mask = trans_to_cuda(mask).long()
-    inputs = trans_to_cuda(inputs).long()
+    alias_inputs = trans_to_cuda(alias_inputs, device).long()
+    items = trans_to_cuda(items, device).long()
+    adj = trans_to_cuda(adj, device).float()
+    mask = trans_to_cuda(mask, device).long()
+    inputs = trans_to_cuda(inputs, device).long()
 
     hidden, s_global = model(items, adj, mask, inputs)
     get = lambda index: hidden[index][alias_inputs[index]]
@@ -194,7 +194,7 @@ def train_test(model, train_data):
     for data in tqdm(para_train_loader):
         model.optimizer.zero_grad()
         targets, scores = forward(model, data)
-        targets = trans_to_cuda(targets).long()
+        targets = trans_to_cuda(targets, device).long()
         loss = model.loss_function(scores, targets - 1) 
         loss.backward()
         xm.optimizer_step(model.optimizer)
