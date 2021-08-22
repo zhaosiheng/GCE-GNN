@@ -182,7 +182,7 @@ def forward(model, data, device):
     return targets, model.compute_scores(seq_hidden, mask, s_global)
 
 
-def train_test(model, train_data):
+def train_test(model, train_data, device):
     print('start training: ', datetime.datetime.now())
     model.train()
     total_loss = 0.0
