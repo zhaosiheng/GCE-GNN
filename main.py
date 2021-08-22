@@ -41,7 +41,7 @@ parser.add_argument('--t', type=float, default=1.0)
 
 
 opt = parser.parse_args()
-
+SERIAL_EXEC = xmp.MpSerialExecutor()
 
 def main():
     init_seed(2020)
@@ -63,103 +63,114 @@ def main():
         opt.dropout_local = 0.0
     else:
         num_node = 310
-
-    train_data = pickle.load(open('datasets/' + opt.dataset + '/train.txt', 'rb'))
-    if opt.validation:
-        train_data, valid_data = split_validation(train_data, opt.valid_portion)
-        test_data = valid_data
-    else:
-        test_data = pickle.load(open('datasets/' + opt.dataset + '/test.txt', 'rb'))
-
-    adj = pickle.load(open('datasets/' + opt.dataset + '/adj_' + str(opt.n_sample_all) + '.pkl', 'rb'))
-    num = pickle.load(open('datasets/' + opt.dataset + '/num_' + str(opt.n_sample_all) + '.pkl', 'rb'))
-    train_data = Data(train_data, hop=opt.hop)
-    test_data = Data(test_data, hop=opt.hop)
-
-    adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
-    model = trans_to_cuda(CombineGraph(opt, num_node, adj, num))
-
-    print(opt)
-    start = time.time()
-    best_result = [0, 0, 0, 0]
-    best_epoch = [0, 0, 0, 0]
-    bad_counter = 0
-
-    for epoch in range(opt.epoch):
-        print('-------------------------------------------------------')
-        print('epoch: ', epoch)
-        if epoch >= 2:
-            model.epoch = 0
+    
+    def get_data(opt):
+        train_data = pickle.load(open('datasets/' + opt.dataset + '/train.txt', 'rb'))
+        if opt.validation:
+            train_data, valid_data = split_validation(train_data, opt.valid_portion)
+            test_data = valid_data
         else:
-            model.epoch = 1
-        train_test(model, train_data)
-###
-        print('start predicting: ', datetime.datetime.now())
-        model.eval()
-        test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
-                                                  shuffle=False, pin_memory=True)
-        result = []
-        hit, mrr, hit_alias, mrr_alias = [], [], [], []
-        for data in test_loader:
-            targets, scores = forward(model, data)
-            sub_scores = scores.topk(20)[1]
-            sub_scores_alias = scores.topk(10)[1]
-            sub_scores = trans_to_cpu(sub_scores).detach().numpy()
-            sub_scores_alias = trans_to_cpu(sub_scores_alias).detach().numpy()
-            targets = targets.numpy()
-            for score, target, mask in zip(sub_scores, targets, test_data.mask):
-                #@20
-                hit.append(np.isin(target - 1, score))
-                if len(np.where(score == target - 1)[0]) == 0:
-                    mrr.append(0)
-                else:
-                    mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
-
-            for score, target, mask in zip(sub_scores_alias, targets, test_data.mask):
-                #@10
-                hit_alias.append(np.isin(target - 1, score))
-                if len(np.where(score == target - 1)[0]) == 0:
-                    mrr_alias.append(0)
-                else:
-                    mrr_alias.append(1 / (np.where(score == target - 1)[0][0] + 1))
+            test_data = pickle.load(open('datasets/' + opt.dataset + '/test.txt', 'rb'))
+        adj = pickle.load(open('datasets/' + opt.dataset + '/adj_' + str(opt.n_sample_all) + '.pkl', 'rb'))
+        num = pickle.load(open('datasets/' + opt.dataset + '/num_' + str(opt.n_sample_all) + '.pkl', 'rb'))
+        train_data = Data(train_data, hop=opt.hop)
+        test_data = Data(test_data, hop=opt.hop)
+        return train_data, test_data
+    def map_fn(index, opt):
+        
+        
 
 
-        result.append(np.mean(hit) * 100)
-        result.append(np.mean(mrr) * 100)
 
-        result.append(np.mean(hit_alias) * 100)
-        result.append(np.mean(mrr_alias) * 100)
-###
-        hit, mrr, hit_alias, mrr_alias = result
-        flag = 0
-        if hit >= best_result[0]:
-            best_result[0] = hit
-            best_epoch[0] = epoch
-            flag = 1
-        if mrr >= best_result[1]:
-            best_result[1] = mrr
-            best_epoch[1] = epoch
-            flag = 1
-        if hit_alias >= best_result[2]:
-            best_result[2] = hit_alias
-            best_epoch[2] = epoch
-            flag = 1
-        if mrr_alias >= best_result[3]:
-            best_result[3] = mrr_alias
-            best_epoch[3] = epoch
-            flag = 1
-        print('Current Result:')
-        print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f' % (hit, mrr, hit_alias, mrr_alias))
-        print('Best Result:')
-        print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f\tEpoch:\t%d,\t%d,\t%d,\t%d' % (
-            best_result[0], best_result[1], best_result[2], best_result[3], best_epoch[0], best_epoch[1], best_epoch[2], best_epoch[3]))
-        bad_counter += 1 - flag
-        if bad_counter >= opt.patience:
-            break
-    print('-------------------------------------------------------')
-    end = time.time()
-    print("Run time: %f s" % (end - start))
+        train_data, test_data = SERIAL_EXEC.run(get_data)
+        adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
+        model = trans_to_cuda(CombineGraph(opt, num_node, adj, num))
+        
+        if xm.is_master_ordinal():  # Divergent CPU-only computation (no XLA tensors beyond this point!)
+            print(opt)
+        
+        start = time.time()
+        best_result = [0, 0, 0, 0]
+        best_epoch = [0, 0, 0, 0]
+        bad_counter = 0
 
+        for epoch in range(opt.epoch):
+            print('-------------------------------------------------------')
+            print('epoch: ', epoch)
+            if epoch >= 2:
+                model.epoch = 0
+            else:
+                model.epoch = 1
+            train_test(model, train_data)
+    ###
+            print('start predicting: ', datetime.datetime.now())
+            model.eval()
+            test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
+                                                      shuffle=False, pin_memory=True)
+            result = []
+            hit, mrr, hit_alias, mrr_alias = [], [], [], []
+            for data in test_loader:
+                targets, scores = forward(model, data)
+                sub_scores = scores.topk(20)[1]
+                sub_scores_alias = scores.topk(10)[1]
+                sub_scores = trans_to_cpu(sub_scores).detach().numpy()
+                sub_scores_alias = trans_to_cpu(sub_scores_alias).detach().numpy()
+                targets = targets.numpy()
+                for score, target, mask in zip(sub_scores, targets, test_data.mask):
+                    #@20
+                    hit.append(np.isin(target - 1, score))
+                    if len(np.where(score == target - 1)[0]) == 0:
+                        mrr.append(0)
+                    else:
+                        mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
+
+                for score, target, mask in zip(sub_scores_alias, targets, test_data.mask):
+                    #@10
+                    hit_alias.append(np.isin(target - 1, score))
+                    if len(np.where(score == target - 1)[0]) == 0:
+                        mrr_alias.append(0)
+                    else:
+                        mrr_alias.append(1 / (np.where(score == target - 1)[0][0] + 1))
+
+
+            result.append(np.mean(hit) * 100)
+            result.append(np.mean(mrr) * 100)
+
+            result.append(np.mean(hit_alias) * 100)
+            result.append(np.mean(mrr_alias) * 100)
+    ###
+            hit, mrr, hit_alias, mrr_alias = result
+            flag = 0
+            if hit >= best_result[0]:
+                best_result[0] = hit
+                best_epoch[0] = epoch
+                flag = 1
+            if mrr >= best_result[1]:
+                best_result[1] = mrr
+                best_epoch[1] = epoch
+                flag = 1
+            if hit_alias >= best_result[2]:
+                best_result[2] = hit_alias
+                best_epoch[2] = epoch
+                flag = 1
+            if mrr_alias >= best_result[3]:
+                best_result[3] = mrr_alias
+                best_epoch[3] = epoch
+                flag = 1
+            print('Current Result:')
+            print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f' % (hit, mrr, hit_alias, mrr_alias))
+            print('Best Result:')
+            print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f\tEpoch:\t%d,\t%d,\t%d,\t%d' % (
+                best_result[0], best_result[1], best_result[2], best_result[3], best_epoch[0], best_epoch[1], best_epoch[2], best_epoch[3]))
+            bad_counter += 1 - flag
+            if bad_counter >= opt.patience:
+                break
+        print('-------------------------------------------------------')
+        end = time.time()
+        print("Run time: %f s" % (end - start))
+        
+    flags = opt
+    xmp.spawn(map_fn, args=(flags,), nprocs=8, start_method='fork')
 
 if __name__ == '__main__':
     main()
