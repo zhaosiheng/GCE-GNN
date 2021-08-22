@@ -91,13 +91,14 @@ def main():
             best_result = [0, 0, 0, 0]
             best_epoch = [0, 0, 0, 0]
             bad_counter = 0
+            t0 =time.time()
         
         
 
         for epoch in range(opt.epoch):
             xm.master_print('-------------------------------------------------------')
             xm.master_print('epoch: ', epoch)
-            #train_test(model, train_data, device, index)
+            train_test(model, train_data, device, index)
     ###
             xm.master_print('start predicting: ', datetime.datetime.now())
             #xm.rendezvous('epoch')
@@ -165,6 +166,8 @@ def main():
                 print('Best Result:')
                 print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f\tEpoch:\t%d,\t%d,\t%d,\t%d' % (
                     best_result[0], best_result[1], best_result[2], best_result[3], best_epoch[0], best_epoch[1], best_epoch[2], best_epoch[3]))
+                t1 = time.time()
+                print('time', t1 - t0)
                 bad_counter += 1 - flag
                 if bad_counter >= opt.patience:
                     break
