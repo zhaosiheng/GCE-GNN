@@ -101,7 +101,7 @@ def main():
             train_test(model, train_data, device, index)
     ###
             xm.master_print('start predicting: ', datetime.datetime.now())
-            xm.rendezvous('epoch')
+            xm.wait_device_ops()
             model.eval()
 
 
