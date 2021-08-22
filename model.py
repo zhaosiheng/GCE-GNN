@@ -192,7 +192,7 @@ def train_test(model, train_data, device):
     train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.batch_size,
                                                sampler=train_sampler)
     para_train_loader = pl.ParallelLoader(train_loader, [device]).per_device_loader(device)
-    for data in range(para_train_loader):
+    for data in para_train_loader:
         model.optimizer.zero_grad()
         targets, scores = forward(model, data, device)
         targets = trans_to_cuda(targets, device).long()
