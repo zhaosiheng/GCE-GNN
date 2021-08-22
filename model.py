@@ -162,10 +162,8 @@ def trans_to_cuda(variable, device):
 
 
 def trans_to_cpu(variable):
-    if torch.cuda.is_available():
-        return variable.cpu()
-    else:
-        return variable
+    return variable.cpu()
+    
 
 
 def forward(model, data, device):
