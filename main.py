@@ -99,6 +99,7 @@ def main():
             train_test(model, train_data, device, index)
     ###
             xm.master_print('start predicting: ', datetime.datetime.now())
+            xm.rendezvous('epoch')
             model.eval()
         xm.rendezvous('finish')
     flags = opt
