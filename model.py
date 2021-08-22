@@ -202,4 +202,4 @@ def train_test(model, train_data, device):
     model.scheduler.step()
 
 
-    return result
+    return 
