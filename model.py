@@ -168,7 +168,7 @@ def trans_to_cpu(variable):
         return variable
 
 
-def forward(model, data):
+def forward(model, data, device):
     alias_inputs, adj, items, mask, targets, inputs = data
     alias_inputs = trans_to_cuda(alias_inputs).long()
     items = trans_to_cuda(items).long()
@@ -195,43 +195,9 @@ def train_test(model, train_data, test_data):
         targets = trans_to_cuda(targets).long()
         loss = model.loss_function(scores, targets - 1) 
         loss.backward()
-        model.optimizer.step()
+        xm.optimizer_step(model.optimizer)
         
     model.scheduler.step()
 
-    print('start predicting: ', datetime.datetime.now())
-    model.eval()
-    test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
-                                              shuffle=False, pin_memory=True)
-    result = []
-    hit, mrr, hit_alias, mrr_alias = [], [], [], []
-    for data in test_loader:
-        targets, scores = forward(model, data)
-        sub_scores = scores.topk(20)[1]
-        sub_scores_alias = scores.topk(10)[1]
-        sub_scores = trans_to_cpu(sub_scores).detach().numpy()
-        sub_scores_alias = trans_to_cpu(sub_scores_alias).detach().numpy()
-        targets = targets.numpy()
-        for score, target, mask in zip(sub_scores, targets, test_data.mask):
-            #@20
-            hit.append(np.isin(target - 1, score))
-            if len(np.where(score == target - 1)[0]) == 0:
-                mrr.append(0)
-            else:
-                mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
-                
-        for score, target, mask in zip(sub_scores_alias, targets, test_data.mask):
-            #@10
-            hit_alias.append(np.isin(target - 1, score))
-            if len(np.where(score == target - 1)[0]) == 0:
-                mrr_alias.append(0)
-            else:
-                mrr_alias.append(1 / (np.where(score == target - 1)[0][0] + 1))
-            
 
-    result.append(np.mean(hit) * 100)
-    result.append(np.mean(mrr) * 100)
-    
-    result.append(np.mean(hit_alias) * 100)
-    result.append(np.mean(mrr_alias) * 100)
     return result
