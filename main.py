@@ -104,6 +104,8 @@ def main():
             print('start predicting: ', datetime.datetime.now())
             model.eval()
         xm.rendezvous('finish')
+    flags = opt
+    xmp.spawn(map_fn, args=(flags,), nprocs=8, start_method='fork')
 '''
             if not xm.is_master_ordinal():
                 xm.rendezvous('test_time')
@@ -177,8 +179,7 @@ def main():
 '''
 
         
-    flags = opt
-    xmp.spawn(map_fn, args=(flags,), nprocs=8, start_method='fork')
+
     #map_fn(0, opt)
     
 if __name__ == '__main__':
