@@ -183,6 +183,7 @@ def forward(model, data, device):
 
 
 def train_test(model, train_data, device):
+    xm.master_print('real')
     print('start training: ', datetime.datetime.now())
     model.train()
     total_loss = 0.0
