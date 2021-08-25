@@ -139,7 +139,8 @@ class CombineGraph(Module):
 
         hz = torch.sum(self.embedding(inputs) * mask, -2) / torch.sum(mask, 1)
         concat = torch.cat([hidden.unsqueeze(1).repeat(1,self.opt.pos_num,1,1), pos_emb.unsqueeze(0).repeat(batch_size,1,1,1)], -1).sum(-2) / len #mask.squeeze(-1).sum(-1).view(batch_size, 1, 1)
-        concat = torch.cat([concat, torch.log2(mask.squeeze(-1).sum(-1).view(batch_size, 1, 1).repeat(1, self.opt.pos_num, 1))], -1)
+        #concat = torch.cat([concat, torch.log2(mask.squeeze(-1).sum(-1).view(batch_size, 1, 1).repeat(1, self.opt.pos_num, 1))], -1)
+        concat = torch.cat([concat, mask.squeeze(-1).sum(-1).view(batch_size, 1, 1).repeat(1, self.opt.pos_num, 1)], -1)
         h = torch.matmul(self.leakyrelu(torch.matmul(concat, self.Q_4)), self.P_4).squeeze(-1)
         
         gama = torch.softmax(h * min(self.opt.t0 * pow(self.opt.te / self.opt.t0, epoch / self.opt.E), self.opt.te), 1)
