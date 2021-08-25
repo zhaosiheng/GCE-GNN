@@ -138,6 +138,8 @@ class CombineGraph(Module):
         pos_emb = self.pos_emb[:, :len, :]
 
         hz = torch.sum(self.embedding(inputs) * mask, -2) / torch.sum(mask, 1)
+        print(mask.shape)
+        print(mask.unsqueeze(1))
         concat = torch.cat([(hidden * mask).unsqueeze(1).repeat(1,self.opt.pos_num,1,1), pos_emb.unsqueeze(0).repeat(batch_size,1,1,1) * mask.unsqueeze(1).repeat(1,self.opt.pos_num,1)], -1).sum(-2) / mask.squeeze(-1).sum(-1).view(batch_size, 1, 1)
         #concat = torch.cat([concat, torch.log2(mask.squeeze(-1).sum(-1).view(batch_size, 1, 1).repeat(1, self.opt.pos_num, 1))], -1)
         concat = torch.cat([concat, mask.squeeze(-1).sum(-1).view(batch_size, 1, 1).repeat(1, self.opt.pos_num, 1)], -1)
