@@ -30,7 +30,7 @@ class CombineGraph(Module):
         # Aggregator
         self.local_agg = LocalAggregator(self.dim, self.opt.alpha, dropout=opt.long_edge_dropout, hop=opt.hop)
         self.global_agg = []
-        for i in range(self.hop):
+        for i in range(2):
             if opt.activate == 'relu':
                 agg = GlobalAggregator(self.dim, opt.dropout_gcn, act=torch.relu)
             else:
