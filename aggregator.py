@@ -104,7 +104,7 @@ class GlobalAggregator(nn.Module):
             neighbor_vector = torch.sum(alpha * neighbor_vector, dim=-2)
 
             output = torch.cat([self_vectors, neighbor_vector], -1)
-            output = F.dropout(output, self.dropout, training=self.training)
+            output = F.dropout(output, 0.2, training=self.training)
             output = torch.matmul(output, self.w_4)
             output = output.view(batch_size, -1, self.dim)
             output = self.act(output)
