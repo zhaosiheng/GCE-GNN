@@ -47,7 +47,7 @@ class LocalAggregator(nn.Module):
         e_0 = self.leakyrelu(e_0).squeeze(-1).view(batch_size, N, N)
         e_1 = self.leakyrelu(e_1).squeeze(-1).view(batch_size, N, N)
         e_2 = self.leakyrelu(e_2).squeeze(-1).view(batch_size, N, N)
-        e_3 = self.leakyrelu(e_3).squeeze(-1).view(batch_size, N, N)
+        #e_3 = self.leakyrelu(e_3).squeeze(-1).view(batch_size, N, N)
 
         mask = -9e15 * torch.ones_like(e_0)
         alpha = torch.where(adj.eq(1), e_0, mask)
