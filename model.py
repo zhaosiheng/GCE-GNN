@@ -98,36 +98,12 @@ class CombineGraph(Module):
         # local
         h_local = self.local_agg(h, adj, mask_item)
 
-        # global
-        all_items = torch.unique(inputs)
-
-        di = self.degree[all_items].unsqueeze(-1)
-        zero_index = (di==0).nonzero(as_tuple=True)[0]
-        for i in reversed(range(len(zero_index))):
-            all_items = torch.cat([all_items[:zero_index[i]],all_items[zero_index[i]+1:]])
-
-        neighbor = self.adj_all[all_items]
-        num = self.num[all_items]
-        di = self.degree[all_items].unsqueeze(-1) +1
-        dj = self.degree[neighbor] +1
-        d = (di * dj).sqrt().reciprocal() * num
-        vj = self.embedding(neighbor)
-        vi = self.embedding(all_items)
-        h_hat = torch.matmul(d.nan_to_num().unsqueeze(-1).transpose(-2,-1),vj).squeeze(1) + di.reciprocal() * vi
-
-
-        mask = torch.zeros_like(neighbor)
-        n = torch.where(num > self.opt.threshold, neighbor, mask)
-        pos_sample = torch.stack(list(n==i for i in all_items)).sum(-1)
-        mask = trans_to_cuda(torch.eye(len(all_items)).long())
-        pos_sample = torch.where(mask.eq(0), pos_sample, mask)
-        con_loss = self.ssl(vi, h_hat, pos_sample)
-        # combine
+        
         h_local = F.dropout(h_local, self.dropout_local, training=self.training)
         
         output = h_local 
 
-        return output, con_loss
+        return output
 
     def ssl(self, h, h_hat, pos_matrix):
         h_mul_h_hat = torch.matmul(h, h_hat.transpose(-2, -1)).exp()
@@ -159,10 +135,10 @@ def forward(model, data):
     mask = trans_to_cuda(mask).long()
     inputs = trans_to_cuda(inputs).long()
 
-    hidden, con_loss = model(items, adj, mask, inputs)
+    hidden = model(items, adj, mask, inputs)
     get = lambda index: hidden[index][alias_inputs[index]]
     seq_hidden = torch.stack([get(i) for i in torch.arange(len(alias_inputs)).long()])
-    return targets, model.compute_scores(seq_hidden, mask), con_loss
+    return targets, model.compute_scores(seq_hidden, mask)
 
 
 def train_test(model, train_data, test_data):
@@ -173,7 +149,7 @@ def train_test(model, train_data, test_data):
                                                shuffle=True, pin_memory=True)
     for data in tqdm(train_loader):
         model.optimizer.zero_grad()
-        targets, scores, con_loss = forward(model, data)
+        targets, scores = forward(model, data)
         targets = trans_to_cuda(targets).long()
         loss = model.loss_function(scores, targets - 1) + model.opt.lambda_coef * con_loss * model.epoch
         loss.backward()
@@ -189,7 +165,7 @@ def train_test(model, train_data, test_data):
     result = []
     hit, mrr, hit_alias, mrr_alias = [], [], [], []
     for data in test_loader:
-        targets, scores, con_loss = forward(model, data)
+        targets, scores = forward(model, data)
         sub_scores = scores.topk(20)[1]
         sub_scores_alias = scores.topk(10)[1]
         sub_scores = trans_to_cpu(sub_scores).detach().numpy()
