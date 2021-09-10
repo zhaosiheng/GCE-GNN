@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
 import numpy
+import time
 
 
 class Aggregator(nn.Module):
@@ -23,8 +24,8 @@ class LocalAggregator(nn.Module):
         self.dim = dim
         self.dropout = dropout
 
-        self.hop = hop
-        self.a_list = torch.nn.ParameterList([nn.Parameter(torch.Tensor(self.dim, 1)) for i in range(hop)])
+        self.range = 2 * hop -1
+        self.a_list = torch.nn.ParameterList([nn.Parameter(torch.Tensor(self.dim, 1)) for i in range(self.range)])
 
         self.bias = nn.Parameter(torch.Tensor(self.dim))
 
@@ -39,16 +40,16 @@ class LocalAggregator(nn.Module):
                    * h.repeat(1, N, 1)).view(batch_size, N, N, self.dim)
 
         e_list = []
-        for i in range(self.hop):
+        for i in range(self.range):
             tmp = torch.matmul(a_input, self.a_list[i])
             tmp = self.leakyrelu(tmp).squeeze(-1).view(batch_size, N, N)
             e_list.append(tmp)
 
 
         mask = -9e15 * torch.ones_like(e_list[0])
-        for i in range(self.hop):
+        for i in range(self.range):
             e_list[i] = torch.where(adj[:,i].eq(i+1), e_list[i], mask).exp()
-            if i>1:
+            if i>0:
                 e_list[i] = F.dropout(e_list[i], self.dropout, training=self.training)
 
 
@@ -59,7 +60,6 @@ class LocalAggregator(nn.Module):
         #0.0145
         output = torch.matmul(alpha, h)
         return output
-
 
 
 class GlobalAggregator(nn.Module):
