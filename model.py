@@ -151,7 +151,7 @@ def train_test(model, train_data, test_data):
         model.optimizer.zero_grad()
         targets, scores = forward(model, data)
         targets = trans_to_cuda(targets).long()
-        loss = model.loss_function(scores, targets - 1) + model.opt.lambda_coef * con_loss * model.epoch
+        loss = model.loss_function(scores, targets - 1)
         loss.backward()
         model.optimizer.step()
         total_loss += loss
