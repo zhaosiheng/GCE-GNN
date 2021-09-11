@@ -79,7 +79,7 @@ class Data(Dataset):
                     adj[v][u] = hop +1
             adj = torch.tensor(adj)
             adj_hop.append(adj)
-            if hop == 0:
+            if hop == 1:
                 adj_ = (adj.t() * -1).detach()
                 adj_hop.append(adj_)
         adj_hop = torch.stack(adj_hop)
