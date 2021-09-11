@@ -79,9 +79,11 @@ class Data(Dataset):
                     adj[v][u] = hop +1
             adj = torch.tensor(adj)
             adj_hop.append(adj)
+            '''
             if hop == 1:
                 adj_ = (adj.t() * -1).detach()
                 adj_hop.append(adj_)
+                '''
         adj_hop = torch.stack(adj_hop)
 
         alias_inputs = [np.where(node == i)[0][0] for i in u_input]
