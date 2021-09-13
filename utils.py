@@ -68,6 +68,7 @@ class Data(Dataset):
         items = node.tolist() + (max_n_node - len(node)) * [0]
         
         adj_hop = []
+        adj_hop_ = []
         for hop in range(self.hop):
             adj = np.zeros((max_n_node,max_n_node))
             for i in np.arange(len(u_input) - hop):
@@ -82,9 +83,9 @@ class Data(Dataset):
             
             if hop == 1:
                 adj_ = (adj.t() * -1).detach()
-                adj_hop.append(adj_)
+                adj_hop_.append(adj_)
                 
-        adj_hop = torch.stack(adj_hop)
+        adj_hop = torch.stack(adj_hop+adj_hop_)
 
         alias_inputs = [np.where(node == i)[0][0] for i in u_input]
 
