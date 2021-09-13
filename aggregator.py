@@ -41,7 +41,7 @@ class LocalAggregator(nn.Module):
                    * h.repeat(1, N, 1)).view(batch_size, N, N, self.dim)
 
         e_list = []
-        for i in range(self.hop):
+        for i in range(self.range):
             tmp = torch.matmul(a_input, self.a_list[i])
             tmp = self.leakyrelu(tmp).squeeze(-1).view(batch_size, N, N)
             e_list.append(tmp)
