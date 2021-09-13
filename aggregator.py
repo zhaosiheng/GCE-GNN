@@ -25,7 +25,8 @@ class LocalAggregator(nn.Module):
         self.dropout = dropout
 
         self.hop = hop
-        self.a_list = torch.nn.ParameterList([nn.Parameter(torch.Tensor(self.dim, 1)) for i in range(hop)])
+        self.range = hop + 1
+        self.a_list = torch.nn.ParameterList([nn.Parameter(torch.Tensor(self.dim, 1)) for i in range(self.range)])
 
         self.bias = nn.Parameter(torch.Tensor(self.dim))
 
@@ -47,9 +48,13 @@ class LocalAggregator(nn.Module):
 
 
         mask = -9e15 * torch.ones_like(e_list[0])
-        for i in range(self.hop):
-            e_list[i] = torch.where(adj[:,i].eq(i+1), e_list[i], mask).exp()
-            if i>1:
+        for i in range(self.range):
+            if i<self.hop:
+                e_list[i] = torch.where(adj[:,i].eq(i+1), e_list[i], mask).exp()
+            if i>=self.hop:
+                j = -1 * (i - self.hop + 2)
+                e_list[i] = torch.where(adj[:, i].eq(j), e_list[i], mask).exp()
+            if i>0:
                 e_list[i] = F.dropout(e_list[i], self.dropout, training=self.training)
 
 
