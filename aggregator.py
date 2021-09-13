@@ -54,7 +54,7 @@ class LocalAggregator(nn.Module):
             if i>=self.hop:
                 j = -1 * (i - self.hop + 2)
                 e_list[i] = torch.where(adj[:, i].eq(j), e_list[i], mask).exp()
-            if i>0:
+            if i!=0 and i!=1 and i!=self.hop:
                 e_list[i] = F.dropout(e_list[i], self.dropout, training=self.training)
 
 
