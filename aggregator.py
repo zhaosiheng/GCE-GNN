@@ -23,7 +23,7 @@ class LocalAggregator(nn.Module):
         super(LocalAggregator, self).__init__()
         self.dim = dim
         self.dropout = dropout
-
+        self.hop = hop
         self.range = 2 * hop -1
         self.a_list = torch.nn.ParameterList([nn.Parameter(torch.Tensor(self.dim, 1)) for i in range(self.range)])
 
