@@ -43,14 +43,11 @@ def handle_adj(adj_dict, n_entity, sample_num, num_dict=None):
         if n_neighbor >= sample_num:
             sampled_indices = np.random.choice(list(range(n_neighbor)), size=sample_num, replace=False)
         else:
-            neighbor.extend([0 for i in range(sample_num - n_neighbor)])
-            neighbor_weight.extend([0 for i in range(sample_num - n_neighbor)])
-            sampled_indices = np.random.choice(list(range(sample_num)), size=sample_num, replace=False)
+            sampled_indices = np.random.choice(list(range(n_neighbor)), size=sample_num, replace=True)
         adj_entity[entity] = np.array([neighbor[i] for i in sampled_indices])
         num_entity[entity] = np.array([neighbor_weight[i] for i in sampled_indices])
 
     return adj_entity, num_entity
-
 
 
 class Data(Dataset):
@@ -71,6 +68,7 @@ class Data(Dataset):
         items = node.tolist() + (max_n_node - len(node)) * [0]
         
         adj_hop = []
+        adj_hop_ = []
         for hop in range(self.hop):
             adj = np.zeros((max_n_node,max_n_node))
             for i in np.arange(len(u_input) - hop):
@@ -82,7 +80,12 @@ class Data(Dataset):
                     adj[v][u] = hop +1
             adj = torch.tensor(adj)
             adj_hop.append(adj)
-        adj_hop = torch.stack(adj_hop)
+            
+            if hop != 0:
+                adj_ = (adj.t() * -1).detach()
+                adj_hop_.append(adj_)
+                
+        adj_hop = torch.stack(adj_hop+adj_hop_)
 
         alias_inputs = [np.where(node == i)[0][0] for i in u_input]
 

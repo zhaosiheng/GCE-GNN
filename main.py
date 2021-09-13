@@ -36,8 +36,6 @@ parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leak
 parser.add_argument('--patience', type=int, default=3)
 parser.add_argument('--hop', type=int, default=5)
 parser.add_argument('--long_edge_dropout', type=float, default=0.0)
-parser.add_argument('--threshold', type=int, default=2)
-parser.add_argument('--lambda_coef', type=float, default=1.0)
 
 
 
@@ -51,17 +49,17 @@ def main():
         num_node = 43098
         opt.n_iter = 2
         opt.dropout_gcn = 0.2
-        opt.dropout_local = 0.0
+        #opt.dropout_local = 0.0
     elif opt.dataset == 'Nowplaying':
         num_node = 60417
         opt.n_iter = 1
         opt.dropout_gcn = 0.0
-        opt.dropout_local = 0.0
+        #opt.dropout_local = 0.0
     elif opt.dataset == 'Tmall':
         num_node = 40728
         opt.n_iter = 1
         opt.dropout_gcn = 0.6
-        opt.dropout_local = 0.5
+        #opt.dropout_local = 0.5
     elif opt.dataset == 'yoochoose1_64':
         num_node = 37484
         opt.n_iter = 1
@@ -94,10 +92,7 @@ def main():
     for epoch in range(opt.epoch):
         print('-------------------------------------------------------')
         print('epoch: ', epoch)
-        if epoch >= 2:
-            model.epoch = 0
-        else:
-            model.epoch = 1
+
         hit, mrr, hit_alias, mrr_alias = train_test(model, train_data, test_data)
 
         flag = 0
