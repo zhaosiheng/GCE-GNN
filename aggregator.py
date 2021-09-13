@@ -52,12 +52,12 @@ class LocalAggregator(nn.Module):
                 e_list[i] = torch.where(adj[:,i].eq(i+1), e_list[i], mask).exp()
             if i>=self.hop:
                 j = -1 * (i - self.hop + 2)
-                #e_list[i] = torch.where(adj[:, i].eq(j), mask, mask).exp()
+                e_list[i] = torch.where(adj[:, i].eq(j), mask, mask).exp()
             if i>0:
                 e_list[i] = F.dropout(e_list[i], self.dropout, training=self.training)
 
 
-        tmp = torch.stack(e_list+[mask.exp()]).sum(dim=0)
+        tmp = torch.stack(e_list).sum(dim=0)
         s = torch.sum(tmp, dim=-1, keepdim=True)
         s = torch.where(s.eq(0), torch.ones_like(s), s)
         alpha = tmp / s
