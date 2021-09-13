@@ -40,19 +40,19 @@ class LocalAggregator(nn.Module):
                    * h.repeat(1, N, 1)).view(batch_size, N, N, self.dim)
 
         e_list = []
-        for i in range(self.range):
+        for i in range(self.range-1):
             tmp = torch.matmul(a_input, self.a_list[i])
             tmp = self.leakyrelu(tmp).squeeze(-1).view(batch_size, N, N)
             e_list.append(tmp)
 
 
         mask = -9e15 * torch.ones_like(e_list[0])
-        for i in range(self.range):
+        for i in range(self.range-1):
             if i<self.hop:
                 e_list[i] = torch.where(adj[:,i].eq(i+1), e_list[i], mask).exp()
             if i>=self.hop:
                 j = -1 * (i - self.hop + 2)
-                e_list[i] = torch.where(adj[:, i].eq(j), mask, mask).exp()
+                #e_list[i] = torch.where(adj[:, i].eq(j), mask, mask).exp()
             if i>0:
                 e_list[i] = F.dropout(e_list[i], self.dropout, training=self.training)
 
