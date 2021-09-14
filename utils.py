@@ -83,7 +83,7 @@ class Data(Dataset):
             
             if hop != 0:
                 adj_ = (adj.t() * -1).detach()
-                #adj_hop_.append(adj_)
+                adj_hop_.append(adj_)
                 
         adj_hop = torch.stack(adj_hop+adj_hop_)
 
