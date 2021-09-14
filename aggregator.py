@@ -50,7 +50,7 @@ class LocalAggregator(nn.Module):
         for i in range(self.range):
             if i<self.hop:
                 e_list[i] = torch.where(adj[:,i].eq(i+1), e_list[i], mask).exp()
-            else if ==self.range-1:
+            else if i==self.range-1:
                 e_list[i] = mask.exp()
             else if i>=self.hop:
                 j = -1 * (i - self.hop + 2)
