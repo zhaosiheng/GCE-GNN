@@ -99,7 +99,7 @@ class CombineGraph(Module):
         h_local = self.local_agg(h, adj, mask_item)
 
         
-        h_local = F.dropout(h_local, self.dropout_local, training=self.training)
+        
         
         output = h_local 
 
