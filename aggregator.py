@@ -52,7 +52,7 @@ class LocalAggregator(nn.Module):
                 e_list[i] = torch.where(adj[:,i].eq(i+1), e_list[i], mask).exp()
             if i>=self.hop:
                 j = -1 * (i - self.hop + 2)
-                #e_list[i] = torch.where(adj[:, i].eq(j), mask, mask).exp()
+                e_list[i] = torch.where(adj[:, i].eq(j), mask, mask).exp()
             if i>0:
                 e_list[i] = F.dropout(e_list[i], self.dropout, training=self.training)
 
