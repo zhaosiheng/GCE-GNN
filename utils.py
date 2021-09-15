@@ -81,7 +81,7 @@ class Data(Dataset):
             adj = torch.tensor(adj)
             adj_hop.append(adj)
             
-            if hop != 0:
+            if hop == 1:
                 adj_ = (adj.t() * -1).detach()
                 adj_hop_.append(adj_)
                 
