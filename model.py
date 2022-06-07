@@ -7,7 +7,7 @@ from tqdm import tqdm
 from aggregator import LocalAggregator, GlobalAggregator
 from torch.nn import Module, Parameter
 import torch.nn.functional as F
-
+from pprint import pprint
 
 class CombineGraph(Module):
     def __init__(self, opt, num_node, adj_all, num):
@@ -42,12 +42,14 @@ class CombineGraph(Module):
         self.pos_emb = nn.Parameter(torch.Tensor(opt.pos_num, opt.pos_emb_len, self.dim))
         self.mine_w_1 = nn.Parameter(torch.Tensor(1, opt.pos_emb_len))
         self.mine_q_1 = nn.Parameter(torch.Tensor(1, opt.pos_emb_len))
-        '''
-        self.Q = nn.Parameter(torch.Tensor(self.dim+1, self.dim))
-        self.P = nn.Parameter(torch.Tensor(self.dim, opt.pos_num))
+        
+        self.Q = nn.Parameter(torch.Tensor(1, opt.pos_num))
+        self.P = nn.Parameter(torch.Tensor(opt.pos_num, opt.pos_num))
         '''
         self.Q_4 = nn.Parameter(torch.Tensor(self.dim * 2 + 1, self.dim))
         self.P_4 = nn.Parameter(torch.Tensor(self.dim, 1))
+        '''
+        self.yogo = nn.Parameter(torch.Tensor(self.dim * 2, self.dim))
         # Parameters
         self.w_1 = nn.Parameter(torch.Tensor(2 * self.dim, self.dim))
         self.w_2 = nn.Parameter(torch.Tensor(self.dim, 1))
@@ -81,7 +83,6 @@ class CombineGraph(Module):
 
         batch_size = hidden.shape[0]
         len = hidden.shape[1]
-
         hs = torch.sum(hidden * mask, -2) / torch.sum(mask, 1)
         
         '''(1)
@@ -113,32 +114,48 @@ class CombineGraph(Module):
 '''
         
         '''(3)'''
-        '''
         pos_emb = self.pos_emb[:, :len, :].view(self.opt.pos_num, len * self.dim)
-        
+        log = torch.sum(mask, 1)
+        log = torch.log2(log)+1
         #hz = torch.sum(self.embedding(inputs) * mask, -2) / torch.sum(mask, 1)
+        hz = self.embedding(inputs) * mask
         #h = torch.matmul(self.leakyrelu(torch.matmul(torch.cat((hs, mask.squeeze(-1).sum(-1).unsqueeze(-1)), -1), self.Q)), self.P)
-        h = torch.matmul(self.leakyrelu(torch.matmul(torch.cat((hs, torch.log2(mask.squeeze(-1).sum(-1).unsqueeze(-1))), -1), self.Q)), self.P)
-        gama = torch.softmax(h * min(self.opt.t0 * pow(self.opt.te / self.opt.t0, epoch / self.opt.E), self.opt.te), 1)
-        '''
+        #h = torch.matmul(self.leakyrelu(torch.matmul(torch.cat((hs, torch.log2(mask.squeeze(-1).sum(-1).unsqueeze(-1))), -1), self.Q)), self.P)
+        h = torch.matmul(self.leakyrelu(torch.matmul(log, self.Q)), self.P) #.sum(-2) / torch.sum(mask, 1)
+        
+        gama = torch.softmax(h / self.opt.t_t, 1)
+        #gama = F.one_hot(torch.sum(mask, 1).squeeze(-1).to(torch.int64), num_classes=self.opt.pos_num).type(torch.LongTensor)
+        
         '''
         pai = gama * pos_emb
         pos_emb = pai.sum(1)
         l2 = (pai).pow(2).sum(-1).sum(-1).pow(0.5).sum(-1) / (pos_emb).pow(2).sum(-1).sum(-1).pow(0.5)
         pos_emb = l2.view(batch_size, 1, 1) * pos_emb
-        '''
+        
         '''
         mean_v = torch.matmul(gama, pos_emb)
         de_tor = torch.nn.functional.normalize(mean_v, p=2, dim=-1)
         num_tor = torch.matmul(gama, torch.norm(pos_emb, dim=-1).unsqueeze(-1))
         pos_emb = (de_tor * num_tor).view(batch_size, len, self.dim)
+        
+        #pos_emb = torch.matmul(gama, pos_emb).view(batch_size, len, self.dim)
+        if epoch==6:
+            exdata = torch.cat([log, gama], -1)
+            exdata = exdata.cpu().detach().numpy().tolist()
+            txt = open("data.txt", 'a+')
+            for i in exdata:
+                pprint(i, txt)
+            txt.close()
+        
         self.gama = gama
-        '''
-        '''(4)'''
+        
+        '''(4)
         pos_emb = self.pos_emb[:, :len, :]
 
         hz = torch.sum(self.embedding(inputs) * mask, -2) / torch.sum(mask, 1)
-        concat = torch.cat([hidden.unsqueeze(1).repeat(1,self.opt.pos_num,1,1), pos_emb.unsqueeze(0).repeat(batch_size,1,1,1)], -1).sum(-2) / mask.squeeze(-1).sum(-1).view(batch_size, 1, 1)
+        #concat = torch.cat([(hidden * mask).unsqueeze(1).repeat(1,self.opt.pos_num,1,1), pos_emb.unsqueeze(0).repeat(batch_size,1,1,1) * mask.unsqueeze(1).repeat(1,self.opt.pos_num,1,1)], -1).sum(-2) / mask.squeeze(-1).sum(-1).view(batch_size, 1, 1)
+        print(hs.shape)
+        print(hz.shape)
         concat = torch.cat([concat, torch.log2(mask.squeeze(-1).sum(-1).view(batch_size, 1, 1).repeat(1, self.opt.pos_num, 1))], -1)
         h = torch.matmul(self.leakyrelu(torch.matmul(concat, self.Q_4)), self.P_4).squeeze(-1)
         
@@ -150,15 +167,20 @@ class CombineGraph(Module):
         pos_emb = (de_tor * num_tor).view(batch_size, len, self.dim)
         
         self.gama = gama
-        
+        '''
         hs = hs.unsqueeze(-2).repeat(1, len, 1)
         nh = torch.matmul(torch.cat([pos_emb, hidden], -1), self.w_1)
         nh = torch.tanh(nh)
+        #nh = pos_emb + hidden
+        #zr = nh[torch.arange(batch_size).long(), torch.sum(mask, 1).squeeze().long() - 1]
         nh = torch.sigmoid(self.glu1(nh) + self.glu2(hs))
         beta = torch.matmul(nh, self.w_2)
         beta = beta * mask
         select = torch.sum(beta * hidden, 1)
+       
+        #select = torch.matmul(torch.cat([select, zr], -1), self.yogo)
 
+        
         b = self.embedding.weight[1:]  # n_nodes x latent_size
         scores = torch.matmul(select, b.transpose(1, 0))
         return scores
@@ -170,11 +192,56 @@ class CombineGraph(Module):
 
         # local
         h_local = self.local_agg(h, adj, mask_item)
+        
+        # global
+        item_neighbors = [inputs]
+        weight_neighbors = []
+        support_size = seqs_len
+
+        for i in range(1, self.hop + 1):
+            item_sample_i, weight_sample_i = self.sample(item_neighbors[-1], self.sample_num)
+            support_size *= self.sample_num
+            item_neighbors.append(item_sample_i.view(batch_size, support_size))
+            weight_neighbors.append(weight_sample_i.view(batch_size, support_size))
+
+        entity_vectors = [self.embedding(i) for i in item_neighbors]
+        weight_vectors = weight_neighbors
+
+        session_info = []
+        item_emb = self.embedding(item) * mask_item.float().unsqueeze(-1)
+        
+        # mean 
+        sum_item_emb = torch.sum(item_emb, 1) / torch.sum(mask_item.float(), -1).unsqueeze(-1)
+        
+        # sum
+        # sum_item_emb = torch.sum(item_emb, 1)
+        
+        sum_item_emb = sum_item_emb
+        for i in range(self.hop):
+            #session_info.append(sum_item_emb.repeat(1, entity_vectors[i].shape[1], 1))
+            session_info.append(sum_item_emb)
+
+        for n_hop in range(self.hop):
+            entity_vectors_next_iter = []
+            shape = [batch_size, -1, self.sample_num, self.dim]
+            for hop in range(self.hop - n_hop):
+                aggregator = self.global_agg[n_hop]
+                vector = aggregator(self_vectors=entity_vectors[hop],
+                                    neighbor_vector=entity_vectors[hop+1].view(shape),
+                                    masks=None,
+                                    batch_size=batch_size,
+                                    neighbor_weight=weight_vectors[hop].view(batch_size, -1, self.sample_num),
+                                    extra_vector=session_info[hop],
+                                    t = self.opt.t)
+                entity_vectors_next_iter.append(vector)
+            entity_vectors = entity_vectors_next_iter
+
+        s_global = entity_vectors[0]
 
         # combine
         h_local = F.dropout(h_local, self.dropout_local, training=self.training)
-        output = h_local 
-
+        s_global = F.dropout(s_global, self.dropout_global, training=self.training)
+        output = h_local + s_global / mask_item.sum(-1).unsqueeze(-1).unsqueeze(-1) ################
         return output
 
 

@@ -39,9 +39,13 @@ parser.add_argument('--long_edge_dropout', type=float, default=0.0)
 parser.add_argument('--pos_emb_len', type=int, default=200)
 parser.add_argument('--pos_num', type=int, default=10)
 
-parser.add_argument('--E', type=float, default=8)
-parser.add_argument('--t0', type=float, default=0.5)
-parser.add_argument('--te', type=float, default=100)
+parser.add_argument('--E', type=float, default=1)
+parser.add_argument('--t0', type=float, default=1)
+parser.add_argument('--te', type=float, default=1)
+parser.add_argument('--t_t', type=float, default=1)
+
+
+parser.add_argument('--t', type=float, default=1.0)
 
 
 
@@ -53,19 +57,24 @@ def main():
 
     if opt.dataset == 'diginetica':
         num_node = 43098
-        opt.n_iter = 1
-        opt.dropout_gcn = 0.2
-        opt.dropout_local = 0.0
+        #opt.n_iter = 1
+        #opt.dropout_gcn = 0.2
+        #opt.dropout_local = 0.0
     elif opt.dataset == 'Nowplaying':
         num_node = 60417
-        opt.n_iter = 1
-        opt.dropout_gcn = 0.0
-        opt.dropout_local = 0.0
+        #opt.n_iter = 1
+        #opt.dropout_gcn = 0.0
+        #opt.dropout_local = 0.0
     elif opt.dataset == 'Tmall':
         num_node = 40728
-        opt.n_iter = 1
+        #opt.n_iter = 1
         opt.dropout_gcn = 0.6
-        opt.dropout_local = 0.5
+        #pt.dropout_local = 0.5
+    elif opt.dataset == 'yoochoose1_64':
+        num_node = 37484
+        opt.n_iter = 1
+        #opt.dropout_gcn = 0.0
+        #opt.dropout_local = 0.0
     else:
         num_node = 310
 
