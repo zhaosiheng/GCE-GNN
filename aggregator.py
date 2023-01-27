@@ -95,6 +95,7 @@ class GlobalAggregator(nn.Module):
         #print(extra_vector[:,0,:].unsqueeze(-1).shape)#100,100,1
         q = torch.matmul( self.q_s, extra_vector[:,0,:].unsqueeze(-1))#100,100,1
         k = torch.matmul( output, self.w_s)#100,l,100
-        print(torch.matmul(k, q))
+        print(torch.matmul(k, q).shape)
+        print(torch.softmax( torch.matmul(k, q), -1).shape)
         output = self.act(output)
         return output
