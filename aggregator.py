@@ -93,7 +93,7 @@ class GlobalAggregator(nn.Module):
         output = output.view(batch_size, -1, self.dim)
         #print(output.shape)#100,l,100
         #print(extra_vector[:,0,:].unsqueeze(-1).shape)#100,100,1
-        print(torch.matmul( self.q_s, extra_vector[:,0,:].unsqueeze(-1)).shape)#100,100,1
-        print(torch.matmul( self.w_s, output).shape)
+        print(torch.matmul( self.q_s, extra_vector[:,0,:]).shape)#100,100,1
+        print(torch.matmul( output, self.w_s).shape)
         output = self.act(output)
         return output
