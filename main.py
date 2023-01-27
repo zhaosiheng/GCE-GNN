@@ -33,7 +33,7 @@ parser.add_argument('--dropout_global', type=float, default=0.5, help='Dropout r
 parser.add_argument('--validation', action='store_true', help='validation')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion')
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
-
+parser.add_argument('--patience', type=int, default=3)
 
 opt = parser.parse_args()
 
