@@ -97,6 +97,6 @@ class GlobalAggregator(nn.Module):
         k = torch.matmul( output, self.w_s)#100,l,100
         beta = torch.matmul(k, q)#100,l,1
         beta = torch.softmax( beta / (self.dim**0.5), -2)#100,l,1
-        print( torch.sum(beta * output, -2).shape )
+        output =  torch.sum(beta * output, -2).unsqueeze(-2)#100,100
         output = self.act(output)
         return output
