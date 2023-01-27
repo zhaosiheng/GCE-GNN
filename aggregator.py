@@ -72,6 +72,9 @@ class GlobalAggregator(nn.Module):
         self.w_3 = nn.Parameter(torch.Tensor(2 * self.dim, self.dim))
         self.bias = nn.Parameter(torch.Tensor(self.dim))
 
+        self.q_s = nn.Parameter(torch.Tensor( self.dim, self.dim))
+        self.w_s = nn.Parameter(torch.Tensor( self.dim, self.dim))
+
     def forward(self, self_vectors, neighbor_vector, batch_size, masks, neighbor_weight, extra_vector=None):
         if extra_vector is not None:
             alpha = torch.matmul(torch.cat([extra_vector.unsqueeze(2).repeat(1, 1, neighbor_vector.shape[2], 1)*neighbor_vector, neighbor_weight.unsqueeze(-1)], -1), self.w_1).squeeze(-1)
@@ -88,5 +91,8 @@ class GlobalAggregator(nn.Module):
         output = F.dropout(output, self.dropout, training=self.training)
         output = torch.matmul(output, self.w_3)
         output = output.view(batch_size, -1, self.dim)
+        print(output.shape)
+        print(extra_vector.shape)
+        
         output = self.act(output)
         return output
