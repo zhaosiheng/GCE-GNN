@@ -53,7 +53,7 @@ class LocalAggregator(nn.Module):
         alpha = torch.where(adj.eq(1), e_0, mask)
         alpha = torch.where(adj.eq(2), e_1, alpha)
         alpha = torch.where(adj.eq(3), e_2, alpha)
-        alpha = torch.where(adj.eq(4), e_3, alpha)
+        alpha = torch.where(adj.eq(4), e_1, alpha)
         alpha = torch.softmax(alpha, dim=-1)
 
         output = torch.matmul(alpha, h)
