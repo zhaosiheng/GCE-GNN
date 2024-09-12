@@ -36,8 +36,7 @@ parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leak
 parser.add_argument('--patience', type=int, default=3)
 parser.add_argument('--hop', type=int, default=5)
 parser.add_argument('--long_edge_dropout', type=float, default=0.0)
-parser.add_argument('--base', type=int, default=5)
-parser.add_argument('--exp', type=int, default=5)
+parser.add_argument('--t', type=float, default=1.0)
 
 
 
@@ -50,19 +49,23 @@ def main():
     if opt.dataset == 'diginetica':
         num_node = 43098
         opt.n_iter = 1
-        opt.dropout_gcn = 0.3
-        opt.dropout_local = 0.0
+        #opt.dropout_gcn = 0.3
+        #opt.dropout_local = 0.0
     elif opt.dataset == 'Nowplaying':
         num_node = 60417
         opt.n_iter = 1
-        opt.dropout_gcn = 0.0
-        opt.dropout_local = 0.0
+        #opt.dropout_gcn = 0.0
+        #opt.dropout_local = 0.0
     elif opt.dataset == 'Tmall':
         num_node = 40728
         opt.n_iter = 1
-        opt.dropout_gcn = 0.4
-        #opt.dropout_local = 0.5
+        #opt.dropout_gcn = 0.4
         opt.dropout_local = 0.0
+    elif opt.dataset == 'yoochoose1_64':
+        num_node = 37484
+        opt.n_iter = 1
+        #opt.dropout_gcn = 0.0
+        #opt.dropout_local = 0.0
     else:
         num_node = 310
 

@@ -17,6 +17,8 @@ elif dataset == "Tmall":
     num = 40728
 elif dataset == "Nowplaying":
     num = 60417
+elif dataset == "yoochoose1_64":
+    num = 37484 # max_id ,real = 17376
 else:
     num = 3
 
