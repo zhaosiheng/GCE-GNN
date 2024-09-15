@@ -34,6 +34,10 @@ parser.add_argument('--validation', action='store_true', help='validation')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion')
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
 parser.add_argument('--patience', type=int, default=3)
+parser.add_argument('--hop', type=int, default=2)
+parser.add_argument('--long_edge_dropout', type=float, default=0.0)
+
+
 
 
 opt = parser.parse_args()
@@ -57,6 +61,11 @@ def main():
         opt.n_iter = 1
         opt.dropout_gcn = 0.6
         opt.dropout_local = 0.5
+    elif opt.dataset == 'yoochoose1_64':
+        num_node = 37484
+        opt.n_iter = 1
+        opt.dropout_gcn = 0.0
+        #opt.dropout_local = 0.0
     else:
         num_node = 310
 
@@ -69,22 +78,23 @@ def main():
 
     adj = pickle.load(open('datasets/' + opt.dataset + '/adj_' + str(opt.n_sample_all) + '.pkl', 'rb'))
     num = pickle.load(open('datasets/' + opt.dataset + '/num_' + str(opt.n_sample_all) + '.pkl', 'rb'))
-    train_data = Data(train_data)
-    test_data = Data(test_data)
+    train_data = Data(train_data, hop=opt.hop)
+    test_data = Data(test_data, hop=opt.hop)
 
     adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
     model = trans_to_cuda(CombineGraph(opt, num_node, adj, num))
 
     print(opt)
     start = time.time()
-    best_result = [0, 0]
-    best_epoch = [0, 0]
+    best_result = [0, 0, 0, 0]
+    best_epoch = [0, 0, 0, 0]
     bad_counter = 0
 
     for epoch in range(opt.epoch):
         print('-------------------------------------------------------')
         print('epoch: ', epoch)
-        hit, mrr = train_test(model, train_data, test_data)
+        hit, mrr, hit_alias, mrr_alias = train_test(model, train_data, test_data)
+
         flag = 0
         if hit >= best_result[0]:
             best_result[0] = hit
@@ -94,11 +104,19 @@ def main():
             best_result[1] = mrr
             best_epoch[1] = epoch
             flag = 1
+        if hit_alias >= best_result[2]:
+            best_result[2] = hit_alias
+            best_epoch[2] = epoch
+            flag = 1
+        if mrr_alias >= best_result[3]:
+            best_result[3] = mrr_alias
+            best_epoch[3] = epoch
+            flag = 1
         print('Current Result:')
-        print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f' % (hit, mrr))
+        print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f' % (hit, mrr, hit_alias, mrr_alias))
         print('Best Result:')
-        print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tEpoch:\t%d,\t%d' % (
-            best_result[0], best_result[1], best_epoch[0], best_epoch[1]))
+        print('\tRecall@20:\t%.4f\tMMR@20:\t%.4f\tRecall@10:\t%.4f\tMMR@10:\t%.4f\tEpoch:\t%d,\t%d,\t%d,\t%d' % (
+            best_result[0], best_result[1], best_result[2], best_result[3], best_epoch[0], best_epoch[1], best_epoch[2], best_epoch[3]))
         bad_counter += 1 - flag
         if bad_counter >= opt.patience:
             break

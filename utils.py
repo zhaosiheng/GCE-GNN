@@ -43,21 +43,25 @@ def handle_adj(adj_dict, n_entity, sample_num, num_dict=None):
         if n_neighbor >= sample_num:
             sampled_indices = np.random.choice(list(range(n_neighbor)), size=sample_num, replace=False)
         else:
-            sampled_indices = np.random.choice(list(range(n_neighbor)), size=sample_num, replace=True)
+            neighbor.extend([0 for i in range(sample_num - n_neighbor)])
+            neighbor_weight.extend([0 for i in range(sample_num - n_neighbor)])
+            sampled_indices = np.random.choice(list(range(sample_num)), size=sample_num, replace=False)
         adj_entity[entity] = np.array([neighbor[i] for i in sampled_indices])
         num_entity[entity] = np.array([neighbor_weight[i] for i in sampled_indices])
 
     return adj_entity, num_entity
 
 
+
 class Data(Dataset):
-    def __init__(self, data, train_len=None):
+    def __init__(self, data, train_len=None, hop=1):
         inputs, mask, max_len = handle_data(data[0], train_len)
         self.inputs = np.asarray(inputs)
         self.targets = np.asarray(data[1])
         self.mask = np.asarray(mask)
         self.length = len(data[0])
         self.max_len = max_len
+        self.hop = hop
 
     def __getitem__(self, index):
         u_input, mask, target = self.inputs[index], self.mask[index], self.targets[index]
@@ -65,26 +69,24 @@ class Data(Dataset):
         max_n_node = self.max_len
         node = np.unique(u_input)
         items = node.tolist() + (max_n_node - len(node)) * [0]
-        adj = np.zeros((max_n_node, max_n_node))
-        for i in np.arange(len(u_input) - 1):
-            u = np.where(node == u_input[i])[0][0]
-            adj[u][u] = 1
-            if u_input[i + 1] == 0:
-                break
-            v = np.where(node == u_input[i + 1])[0][0]
-            if u == v or adj[u][v] == 4:
-                continue
-            adj[v][v] = 1
-            if adj[v][u] == 2:
-                adj[u][v] = 4
-                adj[v][u] = 4
-            else:
-                adj[u][v] = 2
-                adj[v][u] = 3
+        
+        adj_hop = []
+        for hop in range(self.hop):
+            adj = np.zeros((max_n_node,max_n_node))
+            for i in np.arange(len(u_input) - hop):
+                v = np.where(node == u_input[i])[0][0]
+                if u_input[i+hop] == 0:
+                    break
+                else:
+                    u = np.where(node == u_input[i+hop])[0][0]
+                    adj[v][u] = hop +1
+            adj = torch.tensor(adj)
+            adj_hop.append(adj)
+        adj_hop = torch.stack(adj_hop)
 
         alias_inputs = [np.where(node == i)[0][0] for i in u_input]
 
-        return [torch.tensor(alias_inputs), torch.tensor(adj), torch.tensor(items),
+        return [torch.tensor(alias_inputs), adj_hop, torch.tensor(items),
                 torch.tensor(mask), torch.tensor(target), torch.tensor(u_input)]
 
     def __len__(self):

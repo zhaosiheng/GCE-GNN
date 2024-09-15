@@ -23,10 +23,12 @@ class CombineGraph(Module):
         self.sample_num = opt.n_sample
         self.adj_all = trans_to_cuda(torch.Tensor(adj_all)).long()
         self.num = trans_to_cuda(torch.Tensor(num)).float()
+        self.degree = self.num.sum(-1)
+        self.epoch = 0
         
 
         # Aggregator
-        self.local_agg = LocalAggregator(self.dim, self.opt.alpha, dropout=0.0)
+        self.local_agg = LocalAggregator(self.dim, self.opt.alpha, dropout=opt.long_edge_dropout, hop=opt.hop)
         self.global_agg = []
         for i in range(self.hop):
             if opt.activate == 'relu':
@@ -96,35 +98,19 @@ class CombineGraph(Module):
         # local
         h_local = self.local_agg(h, adj, mask_item)
 
-        # global
-        
-        # combine
-        h_local = F.dropout(h_local, self.dropout_local, training=self.training)
+
         
         output = h_local 
 
         return output
 
+    def ssl(self, h, h_hat, pos_matrix):
+        h_mul_h_hat = torch.matmul(h, h_hat.transpose(-2, -1)).exp()
+        h_mul_h_hat = h_mul_h_hat / h_mul_h_hat.sum(-1)
+        pos = (h_mul_h_hat * pos_matrix).sum(-1)
 
-def SSL(sess_emb_hgnn, sess_emb_lgcn):
-    def row_shuffle(embedding):
-        corrupted_embedding = embedding[torch.randperm(embedding.size()[0])]
-        return corrupted_embedding
-
-    def row_column_shuffle(embedding):
-        corrupted_embedding = embedding[torch.randperm(embedding.size()[0])]
-        corrupted_embedding = corrupted_embedding[:, torch.randperm(corrupted_embedding.size()[1])]
-        return corrupted_embedding
-
-    def score(x1, x2):
-        return torch.sum(torch.mul(x1, x2), 1)
-
-    pos = score(sess_emb_hgnn, sess_emb_lgcn)
-    neg1 = score(sess_emb_lgcn, row_column_shuffle(sess_emb_hgnn))
-    one = torch.cuda.FloatTensor(neg1.shape[0], neg1.shape[1]).fill_(1)
-    # one = zeros = torch.ones(neg1.shape[0])
-    con_loss = torch.sum(-torch.log(1e-8 + torch.sigmoid(pos)) - torch.log(1e-8 + (one - torch.sigmoid(neg1))))
-    return con_loss
+        con_loss = -1 * torch.log(pos)
+        return con_loss.mean()
 
 def trans_to_cuda(variable):
     if torch.cuda.is_available():
@@ -164,7 +150,7 @@ def train_test(model, train_data, test_data):
         model.optimizer.zero_grad()
         targets, scores = forward(model, data)
         targets = trans_to_cuda(targets).long()
-        loss = model.loss_function(scores, targets - 1) 
+        loss = model.loss_function(scores, targets - 1)
         loss.backward()
         model.optimizer.step()
         total_loss += loss
@@ -176,20 +162,34 @@ def train_test(model, train_data, test_data):
     test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
                                               shuffle=False, pin_memory=True)
     result = []
-    hit, mrr = [], []
+    hit, mrr, hit_alias, mrr_alias = [], [], [], []
     for data in test_loader:
         targets, scores = forward(model, data)
         sub_scores = scores.topk(20)[1]
+        sub_scores_alias = scores.topk(10)[1]
         sub_scores = trans_to_cpu(sub_scores).detach().numpy()
+        sub_scores_alias = trans_to_cpu(sub_scores_alias).detach().numpy()
         targets = targets.numpy()
         for score, target, mask in zip(sub_scores, targets, test_data.mask):
+            #@20
             hit.append(np.isin(target - 1, score))
             if len(np.where(score == target - 1)[0]) == 0:
                 mrr.append(0)
             else:
                 mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
+                
+        for score, target, mask in zip(sub_scores_alias, targets, test_data.mask):
+            #@10
+            hit_alias.append(np.isin(target - 1, score))
+            if len(np.where(score == target - 1)[0]) == 0:
+                mrr_alias.append(0)
+            else:
+                mrr_alias.append(1 / (np.where(score == target - 1)[0][0] + 1))
+            
 
     result.append(np.mean(hit) * 100)
     result.append(np.mean(mrr) * 100)
-
+    
+    result.append(np.mean(hit_alias) * 100)
+    result.append(np.mean(mrr_alias) * 100)
     return result
