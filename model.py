@@ -8,9 +8,14 @@ from aggregator import LocalAggregator, GlobalAggregator
 from torch.nn import Module, Parameter
 import torch.nn.functional as F
 
+import torch_xla
+import torch_xla.core.xla_model as xm
+import torch_xla.distributed.xla_multiprocessing as xmp
+import torch_xla.distributed.parallel_loader as pl
+
 
 class CombineGraph(Module):
-    def __init__(self, opt, num_node, adj_all, num):
+    def __init__(self, opt, num_node, adj_all, num, device):
         super(CombineGraph, self).__init__()
         self.opt = opt
 
@@ -21,10 +26,10 @@ class CombineGraph(Module):
         self.dropout_global = opt.dropout_global
         self.hop = opt.n_iter
         self.sample_num = opt.n_sample
-        self.adj_all = trans_to_cuda(torch.Tensor(adj_all)).long()
-        self.num = trans_to_cuda(torch.Tensor(num)).float()
+        self.adj_all = trans_to_cuda(torch.Tensor(adj_all), device).long()
+        self.num = trans_to_cuda(torch.Tensor(num), device).float()
         self.degree = self.num.sum(-1)
-        self.epoch = 0
+
         
 
         # Aggregator
@@ -163,27 +168,23 @@ class CombineGraph(Module):
         return output, h_local
 
 
-def trans_to_cuda(variable):
-    if torch.cuda.is_available():
-        return variable.cuda()
-    else:
-        return variable
+def trans_to_cuda(variable, device):
+    return variable.to(device)
+    
 
 
 def trans_to_cpu(variable):
-    if torch.cuda.is_available():
-        return variable.cpu()
-    else:
-        return variable
+    return variable.cpu()
+    
 
 
-def forward(model, data):
+def forward(model, data, device):
     alias_inputs, adj, items, mask, targets, inputs = data
-    alias_inputs = trans_to_cuda(alias_inputs).long()
-    items = trans_to_cuda(items).long()
-    adj = trans_to_cuda(adj).float()
-    mask = trans_to_cuda(mask).long()
-    inputs = trans_to_cuda(inputs).long()
+    alias_inputs = trans_to_cuda(alias_inputs, device).long()
+    items = trans_to_cuda(items, device).long()
+    adj = trans_to_cuda(adj, device).float()
+    mask = trans_to_cuda(mask, device).long()
+    inputs = trans_to_cuda(inputs, device).long()
 
     hidden, h_local = model(items, adj, mask, inputs)
     get = lambda index: hidden[index][alias_inputs[index]]
@@ -192,56 +193,24 @@ def forward(model, data):
     return targets, model.compute_scores(seq_hidden, mask)
 
 
-def train_test(model, train_data, test_data):
-    print('start training: ', datetime.datetime.now())
+def train_test(model, train_data, device, index):
+    print(index, 'start training: ', datetime.datetime.now())
     model.train()
     total_loss = 0.0
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_data,num_replicas=xm.xrt_world_size(), rank=xm.get_ordinal(), shuffle=True)
+  
     train_loader = torch.utils.data.DataLoader(train_data, num_workers=4, batch_size=model.batch_size,
-                                               shuffle=True, pin_memory=True)
-    for data in tqdm(train_loader):
+                                               sampler=train_sampler)
+    para_train_loader = pl.ParallelLoader(train_loader, [device]).per_device_loader(device)
+    for data in para_train_loader:
         model.optimizer.zero_grad()
-        targets, scores = forward(model, data)
-        targets = trans_to_cuda(targets).long()
+        targets, scores = forward(model, data, device)
+        targets = trans_to_cuda(targets, device).long()
         loss = model.loss_function(scores, targets - 1) 
         loss.backward()
-        model.optimizer.step()
-        total_loss += loss
-    print('\tLoss:\t%.3f' % total_loss)
+        xm.optimizer_step(model.optimizer)
+        
     model.scheduler.step()
+    print(index, 'finish')
 
-    print('start predicting: ', datetime.datetime.now())
-    model.eval()
-    test_loader = torch.utils.data.DataLoader(test_data, num_workers=4, batch_size=model.batch_size,
-                                              shuffle=False, pin_memory=True)
-    result = []
-    hit, mrr, hit_alias, mrr_alias = [], [], [], []
-    for data in test_loader:
-        targets, scores = forward(model, data)
-        sub_scores = scores.topk(20)[1]
-        sub_scores_alias = scores.topk(10)[1]
-        sub_scores = trans_to_cpu(sub_scores).detach().numpy()
-        sub_scores_alias = trans_to_cpu(sub_scores_alias).detach().numpy()
-        targets = targets.numpy()
-        for score, target, mask in zip(sub_scores, targets, test_data.mask):
-            #@20
-            hit.append(np.isin(target - 1, score))
-            if len(np.where(score == target - 1)[0]) == 0:
-                mrr.append(0)
-            else:
-                mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
-                
-        for score, target, mask in zip(sub_scores_alias, targets, test_data.mask):
-            #@10
-            hit_alias.append(np.isin(target - 1, score))
-            if len(np.where(score == target - 1)[0]) == 0:
-                mrr_alias.append(0)
-            else:
-                mrr_alias.append(1 / (np.where(score == target - 1)[0][0] + 1))
-            
-
-    result.append(np.mean(hit) * 100)
-    result.append(np.mean(mrr) * 100)
-    
-    result.append(np.mean(hit_alias) * 100)
-    result.append(np.mean(mrr_alias) * 100)
-    return result
+    return 
