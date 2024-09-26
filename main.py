@@ -48,17 +48,17 @@ def main():
 
     if opt.dataset == 'diginetica':
         num_node = 43098
-        opt.n_iter = 1
+        opt.n_iter = 2
         #opt.dropout_gcn = 0.3
         #opt.dropout_local = 0.0
     elif opt.dataset == 'Nowplaying':
         num_node = 60417
-        opt.n_iter = 1
+        opt.n_iter = 2
         #opt.dropout_gcn = 0.0
         #opt.dropout_local = 0.0
     elif opt.dataset == 'Tmall':
         num_node = 40728
-        opt.n_iter = 1
+        opt.n_iter = 2
         #opt.dropout_gcn = 0.4
         opt.dropout_local = 0.0
     elif opt.dataset == 'yoochoose1_64':

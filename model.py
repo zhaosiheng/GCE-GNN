@@ -30,7 +30,7 @@ class CombineGraph(Module):
         # Aggregator
         self.local_agg = LocalAggregator(self.dim, self.opt.alpha, dropout=opt.long_edge_dropout, hop=opt.hop)
         self.global_agg = []
-        for i in range(self.hop):
+        for i in range(2):
             if opt.activate == 'relu':
                 agg = GlobalAggregator(self.dim, opt.dropout_gcn, act=torch.relu)
             else:
@@ -137,21 +137,22 @@ class CombineGraph(Module):
         for i in range(self.hop):
             #session_info.append(sum_item_emb.repeat(1, entity_vectors[i].shape[1], 1))
             session_info.append(sum_item_emb)
-
-        for n_hop in range(self.hop):
+            
+        entity_vectors[0] = None
+        for n_hop in reversed(range(self.hop)):
             entity_vectors_next_iter = []
             shape = [batch_size, -1, self.sample_num, self.dim]
-            for hop in range(self.hop - n_hop):
-                aggregator = self.global_agg[n_hop]
-                vector = aggregator(self_vectors=entity_vectors[hop],
-                                    neighbor_vector=entity_vectors[hop+1].view(shape),
+
+            aggregator = self.global_agg[n_hop]
+            vector = aggregator(self_vectors=entity_vectors[n_hop],
+                                    neighbor_vector=entity_vectors[n_hop+1].view(shape),
                                     masks=None,
                                     batch_size=batch_size,
-                                    neighbor_weight=weight_vectors[hop].view(batch_size, -1, self.sample_num),
-                                    extra_vector=session_info[hop],
+                                    neighbor_weight=weight_vectors[n_hop].view(batch_size, -1, self.sample_num),
+                                    extra_vector=session_info[n_hop],
                                     t = self.opt.t)
-                entity_vectors_next_iter.append(vector)
-            entity_vectors = entity_vectors_next_iter
+
+            entity_vectors[n_hop] = vector
 
         s_global = entity_vectors[0]
 
