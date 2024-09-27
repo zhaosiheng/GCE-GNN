@@ -125,19 +125,18 @@ class CombineGraph(Module):
         for i in range(self.hop):
             session_info.append(sum_item_emb.repeat(1, entity_vectors[i].shape[1], 1))
 
-        for n_hop in range(self.hop):
+        for n_hop in reversed(range(self.hop)):
             entity_vectors_next_iter = []
             shape = [batch_size, -1, self.sample_num, self.dim]
-            for hop in range(self.hop - n_hop):
-                aggregator = self.global_agg[n_hop]
-                vector = aggregator(self_vectors=entity_vectors[hop],
-                                    neighbor_vector=entity_vectors[hop+1].view(shape),
+            
+            aggregator = self.global_agg[n_hop]
+            vector = aggregator(self_vectors=entity_vectors[n_hop],
+                                    neighbor_vector=entity_vectors[n_hop+1].view(shape),
                                     masks=None,
                                     batch_size=batch_size,
-                                    neighbor_weight=weight_vectors[hop].view(batch_size, -1, self.sample_num),
-                                    extra_vector=session_info[hop])
-                entity_vectors_next_iter.append(vector)
-            entity_vectors = entity_vectors_next_iter
+                                    neighbor_weight=weight_vectors[n_hop].view(batch_size, -1, self.sample_num),
+                                    extra_vector=session_info[n_hop])
+            entity_vectors[n_hop] = vector
 
         h_global = entity_vectors[0].view(batch_size, seqs_len, self.dim)
 
